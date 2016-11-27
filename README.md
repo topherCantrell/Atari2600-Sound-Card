@@ -11,6 +11,8 @@ Custom cartridge with AY38010 sound chip.
 
 [https://hackaday.io/project/18536-atari2600-sound-cartridge](https://hackaday.io/project/18536-atari2600-sound-cartridge)
 
+[http://datasheet.octopart.com/FM1808-70-PG-Ramtron-datasheet-8328945.pdf](http://datasheet.octopart.com/FM1808-70-PG-Ramtron-datasheet-8328945.pdf)
+
 ## FRAM Programmer
 
 The FRAM programmer is from my [https://github.com/topherCantrell/GameBoyColor-Development](GameBoy programming project).
