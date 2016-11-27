@@ -12,7 +12,14 @@ Custom cartridge with AY38010 sound chip.
 [https://hackaday.io/project/18536-atari2600-sound-cartridge](https://hackaday.io/project/18536-atari2600-sound-cartridge)
 
 ## FRAM Programmer
-TODO insert pictures/info on the propeller-based FRAM programmer. Add the code here.
+
+The FRAM programmer is from my [https://github.com/topherCantrell/GameBoyColor-Development](GameBoy programming project).
+
+The chip on the left is a Parallax PropStick USB. The chip on the right is the FRAM 1808 chip. A java program sends data to the propstick over
+the the USB serial port. The propstick bit-bangs the FRAM chip's pins to program the RAM. The SPIN code (propstick) and the java code are in the repository.
+
+![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/breakout.jpg)
+
 
 ## Hardware
 
