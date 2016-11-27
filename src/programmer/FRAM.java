@@ -223,7 +223,7 @@ public class FRAM {
         
         if(args.length>0 && args[0].equals("fromFRAM")) {
             
-            int [] data = fram.read(0,32*1024);
+            int [] data = fram.read(0,2*1024);
             OutputStream os = new FileOutputStream(args[1]);
             for(int x=0;x<data.length;++x) {
                 os.write(data[x]);
