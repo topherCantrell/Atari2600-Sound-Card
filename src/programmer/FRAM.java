@@ -221,9 +221,12 @@ public class FRAM {
         
         FRAM fram = new FRAM("COM3");
         
+        int start = 0;
+        int size = 4*1024;        
+        
         if(args.length>0 && args[0].equals("fromFRAM")) {
             
-            int [] data = fram.read(0,2*1024);
+            int [] data = fram.read(start,size);
             OutputStream os = new FileOutputStream(args[1]);
             for(int x=0;x<data.length;++x) {
                 os.write(data[x]);

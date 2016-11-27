@@ -20,6 +20,8 @@ the the USB serial port. The propstick bit-bangs the FRAM chip's pins to program
 
 ![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/programmer.jpg)
 
+Here is how the programmer is wired.
+
 ![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/progpins.png)
 
 
