@@ -1,0 +1,1350 @@
+.cpu 6502
+
+; Hardware definitions
+; On the web: [http://www.alienbill.com/2600/101/docs/stella.html Stella Programmer's Guide]
+
+; The address decoding for the 2600 is very simple. The TIA is accessed
+; if A12 is 0 and A7 is 0. The TIA is selected if (address&1080 == 0000).
+;
+; The TIA chip uses the 6 lower address lines A0-A5. The reads seem to 
+; ignore A4 and A5.
+;
+; The addresses have different read/write definitions and many of them
+; are strobes that are triggered by writing any value.
+;
+; Note that the 6502 has an 8-bit stack pointer. The CPU automatically sets the upper
+; byte of the address to 01. The RIOT chip RAM ghosts from 00xx to 01xx putting the stack
+; in RAM.
+
+; TIA
+
+; Reads
+.CXM0P    = 0x0000 ; Collisions M0/P1
+.CXM1P    = 0x0001 ; Collisions M1/P0
+.CXP0FB   = 0x0002 ; Collisions M0/PF
+.CXP1FB   = 0x0003 ; Collisions P1/PF
+.CXM0FB   = 0x0004 ; Collisions M0/PF
+.CXM1FB   = 0x0005 ; Collisions M1/PF
+.CXBLPF   = 0x0006 ; Collisions BL/PF
+.CXPPMM   = 0x0007 ; Collisions P0/P1
+.INPT0    = 0x0008 ; Paddle input 0
+.INPT1    = 0x0009 ; Paddle input 1
+.INPT2    = 0x000A ; Paddle input 2
+.INPT3    = 0x000B ; Paddle input 3
+.INPT4    = 0x000C ; Latched inputs (joystick buttons)
+.INPT5    = 0x000D ; Latched inputs (joystick buttons)
+
+; Writes
+.VSYNC    = 0x0000 ; D1=1 starts the vertical sync 
+.VBLANK   = 0x0001 ; D1=1 starts the vertical blank (D6 and D7 config INPT0-5) 
+.WSYNC    = 0x0002 ; Halts processor until leading edge of horizontal blank 
+.RSYNC    = 0x0003 ; Resets sync counter (used in chip testing) 
+.NUSIZ0   = 0x0004 ; Number and size of player/missile P0 
+.NUSIZ1   = 0x0005 ; Number and size of player/missile P0 
+.COLUP0   = 0x0006 ; Color-luminance of player 0 
+.COLUP1   = 0x0007 ; Color-luminance of player 1 
+.COLUPF   = 0x0008 ; Color-luminance of play filed 
+.COLUBK   = 0x0009 ; Color-luminance of background 
+.CTRLPF   = 0x000A ; Control playfield, priorities, and ball size 
+.REFP0    = 0x000B ; D3=1 reflects player 0 
+.PEFP1    = 0x000C ; D3=1 reflects player 1 
+.PF0      = 0x000D ; Playfield 0 bits (upper 4 bits) 
+.PF1      = 0x000E ; Playfield 1 bits 
+.PF2      = 0x000F ; Playfield 2 bits 
+.RESP0    = 0x0010 ; Set horizontal position of player 0 
+.RESP1    = 0x0011 ; Set horizontal position of player 1 
+.RESM0    = 0x0012 ; Set horizontal position of missile 0 
+.RESM1    = 0x0013 ; Set horizontal position of missile 1 
+.RESBL    = 0x0014 ; Set horizontal position of ball 
+.AUDC0    = 0x0015 ; Noise, tone, division control channel 0 
+.AUDC1    = 0x0016 ; Noise, tone, division control channel 1 
+.AUDF0    = 0x0017 ; Frequency divider channel 0 
+.AUDF1    = 0x0018 ; Frequency divider channel 1 
+.AUDV0    = 0x0019 ; Volume channel 0 
+.AUDV1    = 0x001A ; Volume channel 1 
+.GRP0     = 0x001B ; Player 0 graphics 
+.GRP1     = 0x001C ; Player 1 graphics 
+.ENAM0    = 0x001D ; D1=1 to enable missile 0 
+.ENAM1    = 0x001E ; D1=1 to enable missile 1 
+.ENABL    = 0x001F ; D1=1 to enable ball 
+.HMP0     = 0x0020 ; Horizontal motion offset for player 0 
+.HMP1     = 0x0021 ; Horizontal motion offset for player 1 
+.HMM0     = 0x0022 ; Horizontal motion offset for missile 0 
+.HMM1     = 0x0023 ; Horizontal motion offset for missile 1 
+.HMBL     = 0x0024 ; Horizontal motion offset for ball 
+.VDELP0   = 0x0025 ; D0=1 to delay player 0 one vertical line 
+.VDELP1   = 0x0026 ; D0=1 to delay player 1 one vertical line 
+.VDELBL   = 0x0027 ; D0=1 to delay ball one vertical line 
+.RESMP0   = 0x0028 ; D1=1 to reset missile 0 to player 0 
+.RESMP1   = 0x0029 ; D1=1 to reset missile 1 to player 1 
+.HMOVE    = 0x002A ;  Executes horizontal motions 
+.HMCLR    = 0x002B ; Clears all horizonal motion registers 
+.CXCLR    = 0x002C ; Clears all collision registers 
+
+; PIA
+
+; The PIA (R.I.O.T.) is accessed if A12 is 0 and A7 is 1. If A9 is 0 then the 128 bytes 
+; of RAM are selected. If A9 is 1 then the PIA timer registers are selected.
+;
+; The TIA REGS are selected if (address&1280 == 0280).
+;
+; The TIA RAM is selected if (address&1280 == 0080).
+;
+; The PIA chip uses the lower 7 address lines A0-A6. Thus the 007F mask below.
+
+.SWCHA    = 0x0280 ; Port A Hand controllers 
+.SWACNT   = 0x0281 ; Port A DDR 
+
+.SWCHB    = 0x0282 ; Port B Console switches 
+; D7 : P1 difficulty (0=amateur, 1=pro)
+; D6 : P0 difficulty (0=amateur, 1=pro)
+; D5 : not used
+; D4 : not used
+; D3 : color or B/W (0=B/W, 1=color)
+; D2 : not used
+; D1 : game select (0=pressed)
+; D0 : game reset (0=pressed)
+
+.SWBCNT   = 0x0283 ; Port B DDR 
+.INTIM    = 0x0284 ; Timer output (read only) 
+.TIM1T    = 0x0294 ; Set 1 clock interval (write only) 
+.TIM8T    = 0x0295 ; Set 8 clock interval (write only) 
+.TIM64T   = 0x0296 ; Set 64 clock interval (write only) 
+.TIM1024T = 0x0297 ; Set 1024 clock interval (write only) 
+
+; RAM Usage
+.TMP0        = 0x80
+.TMP1        = +
+.TMP2        = +
+.rand1       = + 
+.rand2       = + 
+.rand3       = + 
+.rand4       = +
+.PLAYR0Y     = +
+.PLAYR1Y     = +
+.MUS_TMP0    = +
+.MUS_TMP1    = +
+.SCANCNT     = +
+.MODE        = +
+.WALL_INC    = +
+.WALLCNT     = +
+.WALLDELY    = +
+.WALLDELYR   = +
+.DEBOUNCE    = +
+.WALLDRELA   = +
+.WALLDRELB   = +
+.WALLDRELC   = +
+.WALLSTART   = +
+.WALLHEI     = +
+.GAPBITS     = +
+.SCORE_PF1   = +
+.SCORE_PF2   = +
+.MUSADEL     = +
+.MUSAIND     = +
+.MUSAVOL     = +
+.MUSBDEL     = +
+.MUSBIND     = +
+.MUSBVOL     = + 
+
+F000:
+main: 
+
+F000: 78           SEI                       ; Turn off interrupts
+F001: D8           CLD                       ; Clear the "decimal" flag
+
+; http://atariage.com/forums/topic/27405-session-12-initialisation
+; Nice, tight code to clear memory and registers at startup
+;    LDX      #0               ; 0 to ...
+;    TXS                       ; ... SP
+;    PHA                       ; SP is now FF (the end of memory)
+;    TXA                       ; 0 to A (for clearing memory)
+;clear:
+;    PHA                       ; Store 0
+;    DEX                       ; All 256 of memory+registers cleared?
+;    BNE      clear            ; No ... do all. SP ends at FF again
+F002: A2 FF        LDX      #255
+F004: 9A           TXS
+
+F005: 20 28 F1     JSR      INIT             ; Initialize game environment
+F008: 20 FC F1     JSR      INIT_SELMODE     ; Start out in SELECT-MODE (fall into main loop)
+F00B: 20 0F F0     JSR      VIDEO_KERNEL
+F00E: 60           RTS
+
+; Start here at the end of every screen frame
+;
+VIDEO_KERNEL:
+
+F00F: A9 02        LDA      #2               ; D1 bit ON
+F011: 85 02        STA      WSYNC            ; Wait for the end of the current line
+F013: 85 01        STA      VBLANK           ; Turn the electron beam off
+F015: 85 02        STA      WSYNC            ; Wait ...
+F017: 85 02        STA      WSYNC            ; ... three ...
+F019: 85 02        STA      WSYNC            ; ... scanlines
+F01B: 85 00        STA      VSYNC            ; Trigger the vertical sync signal
+F01D: 85 02        STA      WSYNC            ; Hold the vsync signal for ...
+F01F: 85 02        STA      WSYNC            ; ... three ...
+F021: 85 02        STA      WSYNC            ; ... scanlines
+F023: 85 2A        STA      HMOVE            ; Tell hardware to move all game objects
+F025: A9 00        LDA      #0               ; Release ...
+F027: 85 00        STA      VSYNC            ; ... the vertical sync signal
+F029: A9 2B        LDA      #43              ; Set timer to 43*64 = 2752 machine ...
+F02B: 8D 96 02     STA      TIM64T           ; ... cycles 2752/(228/3) = 36 scanlines
+
+    ;  ***** LENGTHY GAME LOGIC PROCESSING BEGINS HERE *****
+
+    ;  Do one of 3 routines while the beam travels back to the top of the screen
+    ;  0 = Game Over processing
+    ;  1 = Playing-Game processing
+    ;  2 = Selecting-Game processing
+
+    ;JSR      RandomBit        ; Counting video frames as part of the random number
+F02E: E6 83        INC      rand1
+F030: A5 8C        LDA      MODE             ; What are we doing between frames?
+F032: C9 00        CMP      #0               ; Mode is ...
+F034: F0 2D        BEQ      DoGameOverMode   ; ... "game over"
+F036: C9 01        CMP      #1               ; Mode is ...
+F038: F0 23        BEQ      DoPlayMode       ; ... "game play"
+F03A: 20 0B F2     JSR      SELMODE          ; Mode is "select game"
+F03D: 4C 66 F0     JMP      DrawFrame        ; Continue to the visible screen area
+
+; Random algorithm from:
+; http://www.classic-games.com/atari2600/random.html
+RandomBit:
+F040: A5 86        LDA      rand4
+F042: 0A           ASL      A
+F043: 0A           ASL      A
+F044: 0A           ASL      A
+F045: 45 86        EOR      rand4            ; new bit is now in bit 6 of A
+F047: 0A           ASL      A
+F048: 0A           ASL      A                ; new bit is now in carry
+F049: 26 83        ROL      rand1            ; shift new bit into bit 0 of register, bit 7 goes into carry
+F04B: 26 84        ROL      rand2            ; shift old bit 7 into bit 8, etc.
+F04D: 26 85        ROL      rand3
+F04F: 26 86        ROL      rand4
+F051: 60           RTS
+RandomByte:
+F052: A2 08        LDX      #8               ; 8 bits
+RandomByte1:
+F054: 20 40 F0     JSR      RandomBit        ; Get next bit
+F057: CA           DEX                       ; All done?
+F058: D0 FA        BNE      RandomByte1      ; No ... keep going
+F05A: A5 83        LDA      rand1            ; Get the value
+F05C: 60           RTS
+
+DoPlayMode:
+F05D: 20 85 F1     JSR      PLAYMODE         ; Playing-game processing
+F060: 4C 66 F0     JMP      DrawFrame        ; Continue to the visible screen area
+
+DoGameOverMode:
+F063: 20 64 F2     JSR      GOMODE           ; Game-over processing
+
+    ;  ***** LENGTHY GAME LOGIC PROCESSING ENDS HERE *****
+
+DrawFrame:
+
+F066: AD 84 02     LDA      INTIM            ; Wait for ...
+F069: C9 00        CMP      #0               ; ... the visible area ...
+F06B: D0 F9        BNE      DrawFrame        ; ... of the screen
+
+F06D: 85 02        STA      WSYNC            ; 37th scanline
+F06F: A9 00        LDA      #0               ; Turn the ...
+F071: 85 01        STA      VBLANK           ; ... electron beam back on
+
+F073: A9 00        LDA      #0               ; Zero out ...
+F075: 85 8B        STA      SCANCNT          ; ... scanline count ...
+F077: 85 80        STA      TMP0             ; ... and all ...
+F079: 85 81        STA      TMP1             ; ... returns ...
+F07B: 85 82        STA      TMP2             ; ... expected ...
+F07D: AA           TAX                       ; ... to come from ...
+F07E: A8           TAY                       ; ... BUILDROW
+
+F07F: 85 2C        STA      CXCLR            ; Clear collision detection
+
+    ;  BEGIN VISIBLE PART OF FRAME
+
+DrawVisibleRows:
+
+F081: A5 80        LDA      TMP0             ; Get A ready (PF0 value)
+F083: 85 02        STA      WSYNC            ; Wait for very start of row
+F085: 86 1B        STX      GRP0             ; Player 0 -- in X
+F087: 84 1C        STY      GRP1             ; Player 1 -- in Y
+F089: 85 0D        STA      PF0              ; PF0      -- in TMP0 (already in A)
+F08B: A5 81        LDA      TMP1             ; PF1      -- in TMP1
+F08D: 85 0E        STA      PF1              ; ...
+F08F: A5 82        LDA      TMP2             ; PP2      -- in TMP2
+F091: 85 0F        STA      PF2              ; ...
+
+F093: 20 B1 F0     JSR      BUILDROW         ; This MUST take through to the next line
+
+F096: E6 8B        INC      SCANCNT          ; Next scan line
+F098: A5 8B        LDA      SCANCNT          ; Do 109*2 = 218 lines
+F09A: C9 6D        CMP      #109             ; All done?
+F09C: D0 E3        BNE      DrawVisibleRows  ; No ... get all the visible rows
+
+    ;  END VISIBLE PART OF FRAME
+
+F09E: A9 00        LDA      #0               ; Turn off electron beam
+F0A0: 85 02        STA      WSYNC            ; Next scanline
+F0A2: 85 0D        STA      PF0              ; Play field 0 off
+F0A4: 85 1B        STA      GRP0             ; Player 0 off
+F0A6: 85 1C        STA      GRP1             ; Player 1 off
+F0A8: 85 0E        STA      PF1              ; Play field 1 off
+F0AA: 85 0F        STA      PF2              ; Play field 2 off
+F0AC: 85 02        STA      WSYNC            ; Next scanline
+
+F0AE: 4C 0F F0     JMP      VIDEO_KERNEL
+
+
+
+BUILDROW:
+
+F0B1: A5 8B        LDA      SCANCNT          ; Where are we on the screen?
+
+F0B3: C9 06        CMP      #6               ; If we are in the ...
+F0B5: 90 40        BCC      ShowScore        ; ... score area
+
+F0B7: 29 07        AND      #7               ; Lower 3 bits as an index again
+F0B9: A8           TAY                       ; Using Y to lookup graphics
+F0BA: B9 58 F5     LDA      GR_PLAYER,Y      ; Get the graphics (if enabled on this row)
+F0BD: AA           TAX                       ; Hold it (for return as player 0)
+F0BE: A8           TAY                       ; Hold it (for return as player 1)
+F0BF: A5 8B        LDA      SCANCNT          ; Scanline count again
+F0C1: 4A           LSR      A                ; This time ...
+F0C2: 4A           LSR      A                ; ... we divide ...
+F0C3: 4A           LSR      A                ; ... by eight (8 rows in picture)
+
+F0C4: C5 87        CMP      PLAYR0Y          ; Scanline group of the P0 object?
+F0C6: F0 02        BEQ      ShowP0           ; Yes ... keep the picture
+F0C8: A2 00        LDX      #0               ; Not time for Player 0 ... no graphics
+
+ShowP0:
+F0CA: C5 88        CMP      PLAYR1Y          ; Scanline group of the P1 object?
+F0CC: F0 02        BEQ      ShowP1           ; Yes ... keep the picture
+F0CE: A0 00        LDY      #0               ; Not time for Player 0 ... no graphics
+
+ShowP1:
+F0D0: A5 95        LDA      WALLSTART        ; Calculate ...
+F0D2: 18           CLC                       ; ... the bottom ...
+F0D3: 65 96        ADC      WALLHEI          ; ... of ...
+F0D5: 85 80        STA      TMP0             ; ... the wall
+
+F0D7: A5 8B        LDA      SCANCNT          ; Scanline count
+
+F0D9: C5 95        CMP      WALLSTART        ; Past upper part of wall?
+F0DB: 90 11        BCC      NoWall           ; No ... skip it
+F0DD: C5 80        CMP      TMP0             ; Past lower part of wall
+F0DF: B0 0D        BCS      NoWall           ; Yes ... skip it
+
+    ;  The wall is on this row
+F0E1: A5 92        LDA      WALLDRELA        ; Draw wall ...
+F0E3: 85 80        STA      TMP0             ; ... by transfering ...
+F0E5: A5 93        LDA      WALLDRELB        ; ... playfield ...
+F0E7: 85 81        STA      TMP1             ; ... patterns ...
+F0E9: A5 94        LDA      WALLDRELC        ; ... to ...
+F0EB: 85 82        STA      TMP2             ; ... return area
+F0ED: 60           RTS                       ; Done
+
+NoWall:
+    ;  The wall is NOT on this row
+F0EE: A9 00        LDA      #0               ; No walls on this row
+F0F0: 85 80        STA      TMP0             ; ... clear ...
+F0F2: 85 81        STA      TMP1             ; ... out ...
+F0F4: 85 82        STA      TMP2             ; ... the playfield
+F0F6: 60           RTS                       ; Done
+
+ShowScore:
+F0F7: 29 07        AND      #7               ; Only need the lower 3 bits
+F0F9: A8           TAY                       ; Soon to be an index into a list
+
+    ;  At this point, the beam is past the loading of the
+    ;  playfield for the left half. We want to make sure
+    ;  that the right half of the playfield is off, so do that
+    ;  now.
+
+F0FA: A2 00        LDX      #0               ; Blank bit pattern
+F0FC: 86 80        STX      TMP0             ; This will always be blank
+F0FE: 86 0E        STX      PF1              ; Turn off playfield ...
+F100: 86 0F        STX      PF2              ; ... for right half of the screen
+
+F102: AA           TAX                       ; Another index
+F103: B9 98 00     LDA      SCORE_PF1,Y      ; Lookup the PF1 graphics for this row
+F106: 85 81        STA      TMP1             ; Return it to the caller
+F108: A8           TAY                       ; We'll need this value again in a second
+F109: B5 99        LDA      SCORE_PF2,X      ; Lookup the PF2 graphics for this row
+F10B: 85 82        STA      TMP2             ; Return it to the caller
+
+F10D: 85 02        STA      WSYNC            ; Now on the next row
+
+F10F: 84 0E        STY      PF1              ; Repeat the left-side playfield ...
+F111: 85 0F        STA      PF2              ; ... onto the new row
+
+F113: B5 99        LDA      SCORE_PF2,X      ; Kill some time waiting for the ...
+F115: B5 99        LDA      SCORE_PF2,X      ; ... beam to pass the left half ...
+F117: B5 99        LDA      SCORE_PF2,X      ; ... of the playfield again
+F119: B5 99        LDA      SCORE_PF2,X      ; ...
+F11B: B5 99        LDA      SCORE_PF2,X      ; ...
+F11D: B5 99        LDA      SCORE_PF2,X      ; ...
+
+F11F: A2 00        LDX      #0               ; Return 0 (off) for player 0 ...
+F121: A0 00        LDY      #0               ; ... and player 1
+
+    ;  The beam is past the left half of the field again.
+    ;  Turn off the playfield.
+
+F123: 86 0E        STX      PF1              ; 0 to PF1 ...
+F125: 86 0F        STX      PF2              ; ... and PF2
+F127: 60           RTS                       ;  Done
+
+
+    ;  ============= END OF VIDEO KERNEL ===================
+
+INIT:
+    ;  This function is called ONCE at power-up/reset to initialize various
+    ;  game settings and variables.
+
+F128: A9 40        LDA      #64              ; Wall is ...
+F12A: 85 08        STA      COLUPF           ; ... redish
+F12C: A9 7E        LDA      #126             ; P0 is ...
+F12E: 85 06        STA      COLUP0           ; ... white
+F130: A9 00        LDA      #0               ; P1 ...
+F132: 85 07        STA      COLUP1           ; ... black
+
+F134: A9 05        LDA      #5               ; Right half of playfield is reflection of left ...
+F136: 85 0A        STA      CTRLPF           ; ... and playfield is on top of players
+
+F138: A2 04        LDX      #4               ; Player 0 position count
+F13A: A0 03        LDY      #3               ; Player 1 position count
+F13C: 85 02        STA      WSYNC            ; Get a fresh scanline
+
+TimeP0Pos:
+F13E: CA           DEX                       ; Kill time while the beam moves ...
+F13F: E0 00        CPX      #0               ; ... to desired ...
+F141: D0 FB        BNE      TimeP0Pos        ; ... position
+F143: 85 10        STA      RESP0            ; Mark player 0's X position
+
+TimeP1Pos:
+F145: 88           DEY                       ; Kill time while the beam moves ...
+F146: C0 00        CPY      #0               ; ... to desired ...
+F148: D0 FB        BNE      TimeP1Pos        ; ... position
+F14A: 85 11        STA      RESP1            ; Mark player 1's X position
+
+F14C: 20 39 F3     JSR      EXPERTISE        ; Initialize the players' Y positions base on expert-settings
+
+F14F: A9 0A        LDA      #10              ; Wall is ...
+F151: 85 96        STA      WALLHEI          ; ... 10 double-scanlines high
+
+F153: A9 00        LDA      #0               ; Set score to ...
+F155: 85 8E        STA      WALLCNT          ; ... 0
+F157: 20 B9 F2     JSR      MAKE_SCORE       ; Blank the score digits
+F15A: A9 00        LDA      #0               ; Blank bits ...
+F15C: 85 9E        STA      SCORE_PF2+5      ; ... on the end of each ...
+F15E: 85 9D        STA      SCORE_PF1+5      ; ... digit pattern
+
+F160: 20 64 F3     JSR      ADJUST_DIF       ; Initialize the wall parameters
+F163: 20 90 F2     JSR      NEW_GAPS         ; Build the wall's initial gap
+
+F166: A9 70        LDA      #112             ; Set wall position off bottom ...
+F168: 85 95        STA      WALLSTART        ; ... to force a restart on first move
+
+F16A: A9 00        LDA      #0               ; Zero out ...
+F16C: 85 20        STA      HMP0             ; ... player 0 motion ...
+F16E: 85 21        STA      HMP1             ; ... and player 1 motion
+
+F170: 60           RTS                       ; Done
+
+INIT_PLAYMODE:
+
+    ;  This function initializes the game play mode
+
+F171: A9 C0        LDA      #192             ; Background is ...
+F173: 85 09        STA      COLUBK           ; ... greenish
+F175: A9 01        LDA      #1               ; Game mode is ...
+F177: 85 8C        STA      MODE             ; ... SELECT
+F179: A9 FF        LDA      #255             ; Restart wall score to ...
+F17B: 85 8E        STA      WALLCNT          ; ... 0 on first move
+F17D: A9 70        LDA      #112             ; Force wall to start ...
+F17F: 85 95        STA      WALLSTART        ; ... over on first move
+F181: 20 B7 F3     JSR      INIT_MUSIC       ; Initialize the music
+F184: 60           RTS                       ; Done
+
+
+PLAYMODE:
+
+    ;  This function is called once per frame to process the main game play.
+
+
+F185: 20 A2 F3     JSR      SEL_RESET_CHK    ; Check to see if Reset/Select has changed
+
+F188: C9 00        CMP      #0               ; Is select pressed?
+F18A: F0 06        BEQ      NoSelect         ; No ... skip
+F18C: 86 91        STX      DEBOUNCE         ; Restore the old value ...
+F18E: 20 FC F1     JSR      INIT_SELMODE     ; ... and let select-mode process the toggle
+F191: 60           RTS                       ; Done
+
+NoSelect:
+F192: 20 D4 F3     JSR      PROCESS_MUSIC    ; Process any playing music
+F195: 20 6F F2     JSR      MOVE_WALLS       ; Move the walls
+
+F198: C9 01        CMP      #1               ; Wall on first row?
+F19A: D0 0D        BNE      NoFirst          ; No ... move on
+F19C: E6 8E        INC      WALLCNT          ; Bump the score
+F19E: 20 64 F3     JSR      ADJUST_DIF       ; Change the wall parameters based on score
+F1A1: A5 8E        LDA      WALLCNT          ; Change the ...
+F1A3: 20 B9 F2     JSR      MAKE_SCORE       ; ... score pattern
+F1A6: 20 90 F2     JSR      NEW_GAPS         ; Calculate the new gap position
+
+NoFirst:
+F1A9: A5 02         LDA      CXP0FB           ; Player 0 collision with playfield
+F1AB: 85 80         STA      TMP0             ; Hold it
+F1AD: A5 03         LDA      CXP1FB           ; Player 1 collision with playfield
+F1AF: 05 80         ORA      TMP0             ; Did either ...
+F1B1: 29 80         AND      #128             ; ... player hit ...
+F1B3: C9 00         CMP      #0               ; ... wall?
+F1B5: F0 04         BEQ      NoHit            ; No ... move on
+F1B7: 20 38 F2      JSR      INIT_GOMODE      ; Go to Game-Over mode
+F1BA: 60            RTS                       ; Done
+
+NoHit: 
+F1BB: AD 80 02      LDA      SWCHA            ; Joystick
+F1BE: 29 80         AND      #128             ; Player 0 ...
+F1C0: C9 00         CMP      #0               ; ... moving left?
+F1C2: F0 13         BEQ      MoveP0Left       ; Yes ... move left
+F1C4: AD 80 02      LDA      SWCHA            ; Joystick
+F1C7: 29 40         AND      #64              ; Player 0 ...
+F1C9: C9 00         CMP      #0               ; ... moving right?
+F1CB: F0 05         BEQ      MoveP0Right      ; Yes ... move right
+F1CD: A9 00         LDA      #0               ; Not moving value
+F1CF: 4C D9 F1      JMP      SetMoveP0        ; Don't move the player
+MoveP0Right:
+F1D2: A9 10         LDA      #16              ; +1
+F1D4: 4C D9 F1      JMP      SetMoveP0        ; Set HMP0
+MoveP0Left:
+F1D7: A9 F0         LDA      #240             ; -1
+SetMoveP0:
+F1D9: 85 20         STA      HMP0             ; New movement value P0
+
+F1DB: AD 80 02      LDA      SWCHA            ; Joystick
+F1DE: 29 08         AND      #8               ; Player 1 ...
+F1E0: C9 00         CMP      #0               ; ... moving left?
+F1E2: F0 13         BEQ      MoveP1Left       ; Yes ... move left
+F1E4: AD 80 02      LDA      SWCHA            ; Joystick
+F1E7: 29 04         AND      #4               ; Player 0 ...
+F1E9: C9 00         CMP      #0               ; ... moving right?
+F1EB: F0 05         BEQ      MoveP1Right      ; Yes ... move right
+F1ED: A9 00         LDA      #0               ; Not moving value
+F1EF: 4C F9 F1      JMP      SetMoveP1        ; Don't move the player
+MoveP1Right:
+F1F2: A9 10         LDA      #16              ; +1
+F1F4: 4C F9 F1      JMP      SetMoveP1        ; Set HMP0
+MoveP1Left:
+F1F7: A9 F0         LDA      #240             ; -1
+SetMoveP1:
+F1F9: 85 21         STA      HMP1             ; New movement value P1
+
+F1FB: 60            RTS                       ; Done
+
+INIT_SELMODE:
+     ;
+     ;  This function initializes the games SELECT-MODE
+     ;
+F1FC: A9 00         LDA      #0               ; Turn off ...
+F1FE: 85 19         STA      AUDV0            ; ... all ...
+F200: 85 1A         STA      AUDV1            ; ... sound
+F202: A9 C8         LDA      #200             ; Background ...
+F204: 85 09         STA      COLUBK           ; ... greenish bright
+F206: A9 02         LDA      #2               ; Now in ...
+F208: 85 8C         STA      MODE             ; SELECT game mode
+F20A: 60            RTS                       ; Done
+
+SELMODE:
+     ;
+     ;  This function is called once per frame to process the SELECT-MODE.
+     ;  The wall moves here, but doesn't change or collide with players.
+     ;  This function selects between 1 and 2 player game.
+     ;
+F20B: 20 6F F2      JSR      MOVE_WALLS       ; Move the walls
+F20E: 20 A2 F3      JSR      SEL_RESET_CHK    ; Check the reset/select switches
+F211: C9 01         CMP      #1               ; RESET button?
+F213: F0 1C         BEQ      SelStartGame     ; Yes ... start game
+F215: C9 03         CMP      #3               ; RESET and SELECT?
+F217: F0 18         BEQ      SelStartGame     ; Yes ... start game
+F219: C9 02         CMP      #2               ; Select only?
+F21B: D0 17         BNE      SelExp           ; No ... stay in this mode
+F21D: A5 88         LDA      PLAYR1Y          ; Select toggled. Get player 1 Y coordinate
+F21F: C9 FF         CMP      #255             ; 2nd player on the screen?
+F221: F0 07         BEQ      SelP1On          ; No ... toggle it on
+F223: A9 FF         LDA      #255             ; Yes ...
+F225: 85 88         STA      PLAYR1Y          ; ... toggle it off
+F227: 4C 34 F2      JMP      SelExp           ; Move to expertise
+SelP1On:
+F22A: A9 0C         LDA      #12              ; Y coordinate
+F22C: 85 88         STA      PLAYR1Y          ; On screen now
+F22E: 4C 34 F2      JMP      SelExp           ; Move to expertise
+
+SelStartGame:
+F231: 20 71 F1      JSR      INIT_PLAYMODE    ; Reset toggled ... start game
+SelExp:
+F234: 20 39 F3      JSR      EXPERTISE        ; Adjust both players for pro settings
+F237: 60            RTS                       ; Done
+
+INIT_GOMODE:
+
+     ;  This function initializes the GAME-OVER game mode.
+
+F238: 85 2B         STA      HMCLR            ; Stop both players from moving
+F23A: A5 02         LDA      CXP0FB           ; P0 collision ...
+F23C: 29 80         AND      #128             ; ... with wall
+F23E: C9 00         CMP      #0               ; Did P0 hit the wall?
+F240: D0 04         BNE      GoCheckP1        ; Yes ... leave it at bottom
+F242: A9 02         LDA      #2               ; No ... move player 0 ...
+F244: 85 87         STA      PLAYR0Y          ; ... up the screen to show win
+
+GoCheckP1:
+F246: A5 03         LDA      CXP1FB           ; P1 collision ...
+F248: 29 80         AND      #128             ; ... with wall
+F24A: C9 00         CMP      #0               ; Did P1 hit the wall?
+F24C: D0 0A         BNE      GoP1Hit          ; Yes ... leave it at the bottom
+F24E: A5 88         LDA      PLAYR1Y          ; Is P1 even ...
+F250: C9 FF         CMP      #255             ; ... on the screen (2 player game?)
+F252: F0 04         BEQ      GoP1Hit          ; No ... skip it
+F254: A9 02         LDA      #2               ; Player 1 is onscreen and didn't collide ...
+F256: 85 88         STA      PLAYR1Y          ; ... move up the screen to show win
+
+GoP1Hit:
+F258: A9 00         LDA      #0               ; Going to ...
+F25A: 85 8C         STA      MODE             ; ... game-over mode
+F25C: 85 19         STA      AUDV0            ; Turn off any ...
+F25E: 85 1A         STA      AUDV1            ; ... sound
+F260: 20 8D F4      JSR      INIT_GO_FX       ; Initialize sound effects
+F263: 60            RTS                       ; Done
+
+GOMODE:
+
+     ; This function is called every frame to process the game
+     ; over sequence. When the sound effect has finished, the
+     ; game switches to select mode.
+
+F264: 20 A4 F4      JSR      PROCESS_GO_FX    ; Process the sound effects
+F267: C9 00         CMP      #0               ; Effects still running?
+F269: F0 03         BEQ      GoKeepGoing      ; Yes ... let them run
+F26B: 20 FC F1      JSR      INIT_SELMODE     ; When effect is over, go to select mode
+GoKeepGoing:
+F26E: 60            RTS                       ; Done
+
+MOVE_WALLS:
+
+     ;  This function moves the wall down the screen and back to position 0
+     ;  when it reaches (or passes) 112.
+
+F26F: C6 8F         DEC      WALLDELY         ; Wall motion timer
+F271: A5 8F         LDA      WALLDELY         ; Time to ...
+F273: C9 00         CMP      #0               ; ... move the wall?
+F275: D0 16         BNE      WallDone         ; No ... leave it alone
+F277: A5 90         LDA      WALLDELYR        ; Reset the ...
+F279: 85 8F         STA      WALLDELY         ; ... delay count
+F27B: A5 95         LDA      WALLSTART        ; Current wall position
+F27D: 18            CLC                       ; Increment ...
+F27E: 65 8D         ADC      WALL_INC         ; ... wall position
+F280: C9 70         CMP      #112             ; At the bottom?
+F282: 90 07         BCC      WallOK           ; No ... leave it alone
+F284: A9 00         LDA      #0               ; Else restart ...
+F286: 85 95         STA      WALLSTART        ; ... wall at top of screen
+F288: A9 01         LDA      #1               ; Return flag that wall DID restart
+F28A: 60            RTS                       ; Done
+WallOK:
+F28B: 85 95         STA      WALLSTART        ; Store new wall position
+WallDone:
+F28D: A9 00         LDA      #0               ; Return flag that wall did NOT restart
+F28F: 60            RTS                       ; Done
+
+NEW_GAPS:
+
+     ;  This function builds the PF0, PF1, and PF2 graphics for a wall
+     ;  with the gap pattern (GAPBITS) placed at random in the 20 bit
+     ;  area.
+
+F290: A9 FF         LDA      #255             ; Start with ...
+F292: 85 92         STA      WALLDRELA        ; ... solid wall in PF0 ...
+F294: 85 93         STA      WALLDRELB        ; ... and PF1
+F296: A5 97         LDA      GAPBITS          ; Store the gap pattern ...
+F298: 85 94         STA      WALLDRELC        ; ... in PF2
+
+F29A: 20 52 F0      JSR      RandomByte       ; Get random value
+F29D: 29 0F         AND      #15              ; 0 to 15
+F29F: C9 0C         CMP      #12              ; Too far to the right?
+F2A1: F0 04         BEQ      GapOK            ; No ... 12 is OK
+F2A3: 90 02         BCC      GapOK            ; No ... less than 12 is OK
+F2A5: E9 09         SBC      #9               ; Back up 9
+
+GapOK:
+F2A7: C9 00         CMP      #0               ; Gap already at far left?
+F2A9: F0 0D         BEQ      GapDone          ; Yes ... done
+F2AB: 38            SEC                       ; Roll gap ...
+F2AC: 66 94         ROR      WALLDRELC        ; ... left ...
+F2AE: 26 93         ROL      WALLDRELB        ; ... desired ...
+F2B0: 66 92         ROR      WALLDRELA        ; ... times ...
+F2B2: 38            SEC                       ; All rolls ...
+F2B3: E9 01         SBC      #1               ; ... done?
+F2B5: 4C A7 F2      JMP      GapOK            ; No ... do them all
+GapDone:
+F2B8: 60            RTS                       ; New wall pattern is ready
+
+MAKE_SCORE:
+
+     ;  This function builds the PF1 and PF2 graphics rows for
+     ;  the byte value passed in A. The current implementation is
+     ;  two-digits only ... PF2 is blank.
+
+F2B9: A2 00         LDX      #0               ; 100's digit
+F2BB: A0 00         LDY      #0               ; 10's digit
+
+Count100s:
+F2BD: C9 64         CMP      #100             ; Need another 100s digit?
+F2BF: 90 07         BCC      Count10s         ; No ... move on to 10s
+F2C1: E8            INX                       ; Count ...
+F2C2: 38            SEC                       ; ... value
+F2C3: E9 64         SBC      #100             ; Take off this 100
+F2C5: 4C BD F2      JMP      Count100s        ; Keep counting
+Count10s:
+F2C8: C9 0A         CMP      #10              ; Need another 10s digit?
+F2CA: 90 07         BCC      CountDone        ; No ... got all the tens
+F2CC: C8            INY                       ; Count ...
+F2CD: 38            SEC                       ; ... value
+F2CE: E9 0A         SBC      #10              ; Take off this 10
+F2D0: 4C C8 F2      JMP      Count10s         ; Keep counting
+
+CountDone:
+F2D3: 0A            ASL      A                ; One's digit ...
+F2D4: 0A            ASL      A                ; ... *8 ....
+F2D5: 0A            ASL      A                ; ... to find picture
+F2D6: AA            TAX                       ; One's digit picture to X
+F2D7: 98            TYA                       ; Now the 10's digit
+F2D8: 0A            ASL      A                ; Multiply ...
+F2D9: 0A            ASL      A                ; ... by 8 ...
+F2DA: 0A            ASL      A                ; ... to find picture
+F2DB: A8            TAY                       ; 10's picture in Y
+
+F2DC: B9 60 F5      LDA      DIGITS,Y         ; Get the 10's digit
+F2DF: 29 F0         AND      #0xF0            ; Upper nibble
+F2E1: 85 98         STA      SCORE_PF1        ; Store left side
+F2E3: BD 60 F5      LDA      DIGITS,X         ; Get the 1's digit
+F2E6: 29 0F         AND      #0x0F            ; Lower nibble
+F2E8: 05 98         ORA      SCORE_PF1        ; Put left and right half together
+F2EA: 85 98         STA      SCORE_PF1        ; And store image
+
+     ; We have plenty of code space. Time and registers are at a premium.
+     ; So copy/past the code for each row
+
+F2EC: B9 61 F5      LDA      DIGITS+1,Y       ; Repeat for 2nd line of picture ...
+F2EF: 29 F0         AND      #0xF0            ; ...
+F2F1: 85 99         STA      SCORE_PF1+1      ; ...
+F2F3: BD 61 F5      LDA      DIGITS+1,X       ; ...
+F2F6: 29 0F         AND      #15              ; ...
+F2F8: 05 99         ORA      SCORE_PF1+1      ; ...
+F2FA: 85 99         STA      SCORE_PF1+1      ; ...
+
+F2FC: B9 62 F5      LDA      DIGITS+2,Y       ; Repeat for 3nd line of picture
+F2FF: 29 F0         AND      #0xF0            ; ...
+F301: 85 9A         STA      SCORE_PF1+2      ; ...
+F303: BD 62 F5      LDA      DIGITS+2,X       ; ...
+F306: 29 0F         AND      #0x0F            ; ...
+F308: 05 9A         ORA      SCORE_PF1+2      ; ...
+F30A: 85 9A         STA      SCORE_PF1+2      ; ...
+
+F30C: B9 63 F5      LDA      DIGITS+3,Y       ; Repeat for 4th line of picture
+F30F: 29 F0         AND      #0xF0            ; ...
+F311: 85 9B         STA      SCORE_PF1+3      ; ...
+F313: BD 63 F5      LDA      DIGITS+3,X       ; ...
+F316: 29 0F         AND      #0x0F            ; ...
+F318: 05 9B         ORA      SCORE_PF1+3      ; ...
+F31A: 85 9B         STA      SCORE_PF1+3      ; ...
+
+F31C: B9 64 F5      LDA      DIGITS+4,Y       ; Repeat for 5th line of picture
+F31F: 29 F0         AND      #0xF0            ; ...
+F321: 85 9C         STA      SCORE_PF1+4      ; ...
+F323: BD 64 F5      LDA      DIGITS+4,X       ; ...
+F326: 29 0F         AND      #0x0F            ; ...
+F328: 05 9C         ORA      SCORE_PF1+4      ; ...
+F32A: 85 9C         STA      SCORE_PF1+4      ; ...
+
+F32C: A9 00         LDA      #0               ; For now ...
+F32E: 85 99         STA      SCORE_PF2        ; ... there ...
+F330: 85 9A         STA      SCORE_PF2+1      ; ... is ...
+F332: 85 9B         STA      SCORE_PF2+2      ; ... no ...
+F334: 85 9C         STA      SCORE_PF2+3      ; ... 100s ...
+F336: 85 9D         STA      SCORE_PF2+4      ; ... digit drawn
+
+F338: 60            RTS                       ; Done
+
+EXPERTISE:
+
+     ;  This function changes the Y position of the players based on the
+     ;  position of their respective pro/novice switches. The player 1
+     ;  position is NOT changed if the mode is a single-player game.
+
+F339: AD 82 02      LDA      SWCHB            ; Check P0 ...
+F33C: 29 40         AND      #0x40            ; ... pro/novice settings
+F33E: C9 00         CMP      #0               ; Amateur?
+F340: F0 05         BEQ      ExpP0Ama         ; Yes ... near the bottom of screen
+F342: A9 08         LDA      #8               ; Pro ... near the top
+F344: 4C 49 F3      JMP      ExpP1            ; Store and check P0
+ExpP0Ama:
+F347: A9 0C         LDA      #12              ; near the bottom
+
+ExpP1:
+F349: 85 87         STA      PLAYR0Y          ; Player 0 Y coordinate
+
+F34B: A6 88         LDX      PLAYR1Y          ; Is P1 on ...
+F34D: E0 FF         CPX      #255             ; ... the screen?
+F34F: F0 12         BEQ      ExpNoP1          ; No ... skip all this
+F351: AD 82 02      LDA      SWCHB            ; Check P1 ...
+F354: 29 80         AND      #0x80            ; ... pro/novice settings
+F356: C9 00         CMP      #0               ; Amateur?
+F358: F0 05         BEQ      ExpP1Ama         ; Yes ... near the bottom of the screen
+F35A: A2 08         LDX      #8               ; Pro ... near the top
+F35C: 4C 61 F3      JMP      ExpDone          ; Store and out
+ExpP1Ama:
+F35F: A2 0C         LDX      #12              ; Novice ... near the bottom
+ExpDone:
+F361: 86 88         STX      PLAYR1Y          ; Player 1 Y coordinate
+ExpNoP1:
+F363: 60            RTS                       ; Done
+
+ADJUST_DIF:
+
+     ;  This function adjusts the wall game difficulty values based on the
+     ;  current score. The music can also change with the difficulty. A single
+     ;  table describes the new values and when they take effect.
+
+F364: A2 00         LDX      #0               ; Starting at index 0
+
+AdjNextRow:
+F366: BD 15 F5      LDA      SKILL_VALUES,X   ; Get the score match
+F369: C9 FF         CMP      #255             ; At the end of the table?
+F36B: D0 01         BNE      AdjCheckTable    ; No ... check this row
+F36D: 60            RTS                       ; End of the table ... leave it alone
+AdjCheckTable:
+F36E: C5 8E         CMP      WALLCNT          ; Is this our row?
+F370: D0 27         BNE      AdjBump          ; No ... bump to next
+F372: E8            INX                       ; Copy ...
+F373: BD 15 F5      LDA      SKILL_VALUES,X   ; ... new ...
+F376: 85 8D         STA      WALL_INC         ; ... wall increment
+F378: E8            INX                       ; Copy ...
+F379: BD 15 F5      LDA      SKILL_VALUES,X   ; ... new ...
+F37C: 85 8F         STA      WALLDELY         ; ... wall ...
+F37E: 85 90         STA      WALLDELYR        ; ... delay
+F380: E8            INX                       ; Copy ...
+F381: BD 15 F5      LDA      SKILL_VALUES,X   ; ... new ...
+F384: 85 97         STA      GAPBITS          ; ... gap pattern
+F386: E8            INX                       ; Copy ...
+F387: BD 15 F5      LDA      SKILL_VALUES,X   ; ... new ...
+F38A: 85 9B         STA      MUSAIND          ; ... MusicA index
+F38C: E8            INX                       ; Copy ...
+F38D: BD 15 F5      LDA      SKILL_VALUES,X   ; ... new ...
+F390: 85 9E         STA      MUSBIND          ; ... MusicB index
+F392: A9 01         LDA      #1               ; Force ...
+F394: 85 9A         STA      MUSADEL          ; ... music to ...
+F396: 85 9D         STA      MUSBDEL          ; ... start new
+F398: 60            RTS                       ; Done
+AdjBump:
+F399: E8            INX                       ; Move ...
+F39A: E8            INX                       ; ... X ...
+F39B: E8            INX                       ; ... to ...
+F39C: E8            INX                       ; ... next ...
+F39D: E8            INX                       ; ... row of ...
+F39E: E8            INX                       ; ... table
+F39F: 4C 66 F3      JMP      AdjNextRow       ; Try next row
+
+
+SEL_RESET_CHK:
+
+     ;  This function checks for changes to the reset/select
+     ;  switches and debounces the transitions.
+     ;  xxxxxxSR (Select, Reset)
+
+F3A2: A6 91         LDX      DEBOUNCE         ; Get the last value
+F3A4: AD 82 02      LDA      SWCHB            ; New value
+F3A7: 29 03         AND      #3               ; Only need bottom 2 bits
+F3A9: C5 91         CMP      DEBOUNCE         ; Same as before?
+F3AB: F0 07         BEQ      SelDebounce      ; Yes ... return nothing changed
+F3AD: 85 91         STA      DEBOUNCE         ; Hold new last value
+F3AF: 49 FF         EOR      #255             ; Active low to active high
+F3B1: 29 03         AND      #3               ; Only need select/reset
+F3B3: 60            RTS                       ; Return changes
+SelDebounce:
+F3B4: A9 00         LDA      #0               ; Return 0 ...
+F3B6: 60            RTS                       ; ... nothing changed
+
+
+INIT_MUSIC:
+
+     ;  This function initializes the hardware and temporaries
+     ;  for 2-channel music
+
+F3B7: A9 06         LDA      #6               ; Audio control ...
+F3B9: 85 15         STA      AUDC0            ; ... to pure ...
+F3BB: 85 16         STA      AUDC1            ; ... tones
+F3BD: A9 00         LDA      #0               ; Turn off ...
+F3BF: 85 19         STA      AUDV0            ; ... all ...
+F3C1: 85 1A         STA      AUDV1            ; ... sound
+F3C3: 85 9B         STA      MUSAIND          ; Music pointers ...
+F3C5: 85 9E         STA      MUSBIND          ; ... to top of data
+F3C7: A9 01         LDA      #1               ; Force ...
+F3C9: 85 9A         STA      MUSADEL          ; ... music ...
+F3CB: 85 9D         STA      MUSBDEL          ; ... reload
+F3CD: A9 0F         LDA      #15              ; Set volume levels ...
+F3CF: 85 9C         STA      MUSAVOL          ; ... to ...
+F3D1: 85 9F         STA      MUSBVOL          ; ... maximum
+F3D3: 60            RTS                       ; Done
+
+PROCESS_MUSIC:
+
+     ;  This function is called once per frame to process the
+     ;  2 channel music. Two tables contain the commands/notes
+     ;  for individual channels. This function changes the
+     ;  notes at the right time.
+
+F3D4: C6 9A         DEC      MUSADEL          ; Current note on Channel A ended?
+F3D6: D0 58         BNE      MusDoB           ; No ... let it play
+
+MusChanA:
+F3D8: A6 9B         LDX      MUSAIND          ; Voice-A index
+F3DA: BD BC F4      LDA      MUSICA,X         ; Get the next music command
+F3DD: C9 00         CMP      #0               ; Jump?
+F3DF: F0 22         BEQ      MusCmdJumpA      ; Yes ... handle it
+F3E1: C9 01         CMP      #1               ; Control?
+F3E3: F0 11         BEQ      MusCmdCtrlA      ; Yes ... handle it
+F3E5: C9 02         CMP      #2               ; Volume?
+F3E7: D0 28         BNE      MusCmdToneA      ; No ... must be a note
+F3E9: E8            INX                       ; Point to volume value
+F3EA: E6 9B         INC      MUSAIND          ; Bump the music pointer
+F3EC: BD BC F4      LDA      MUSICA,X         ; Get the volume value
+F3EF: E6 9B         INC      MUSAIND          ; Bump the music pointer
+F3F1: 85 9C         STA      MUSAVOL          ; Store the new volume value
+F3F3: 4C D8 F3      JMP      MusChanA         ; Keep processing through a tone
+
+MusCmdCtrlA:
+F3F6: E8            INX                       ; Point to the control value
+F3F7: E6 9B         INC      MUSAIND          ; Bump the music pointer
+F3F9: BD BC F4      LDA      MUSICA,X         ; Get the control value
+F3FC: E6 9B         INC      MUSAIND          ; Bump the music pointer
+F3FE: 85 15         STA      AUDC0            ; Store the new control value
+F400: 4C D8 F3      JMP      MusChanA         ; Keep processing through a tone
+
+MusCmdJumpA:
+F403: E8            INX                       ; Point to jump value
+F404: 8A            TXA                       ; X to ...
+F405: A8            TAY                       ; ... Y (pointer to jump value)
+F406: E8            INX                       ; Point one past jump value
+F407: 8A            TXA                       ; Into A so we can subtract
+F408: 38            SEC                       ; New ...
+F409: F9 BC F4      SBC      MUSICA,Y         ; ... index
+F40C: 85 9B         STA      MUSAIND          ; Store it
+F40E: 4C D8 F3      JMP      MusChanA         ; Keep processing through a tone
+
+MusCmdToneA:
+F411: A4 9C         LDY      MUSAVOL          ; Get the volume
+F413: 29 1F         AND      #0x1F            ; Lower 5 bits are frequency
+F415: C9 1F         CMP      #0x1F            ; Is this a silence?
+F417: D0 02         BNE      MusNoteA         ; No ... play it
+F419: A0 00         LDY      #0               ; Frequency of 31 flags silence
+MusNoteA:
+F41B: 85 17         STA      AUDF0            ; Store the frequency
+F41D: 84 19         STY      AUDV0            ; Store the volume
+F41F: BD BC F4      LDA      MUSICA,X         ; Get the note value again
+F422: E6 9B         INC      MUSAIND          ; Bump to the next command
+F424: 6A            ROR      A                ; The upper ...
+F425: 6A            ROR      A                ; ... three ...
+F426: 6A            ROR      A                ; ... bits ...
+F427: 6A            ROR      A                ; ... hold ...
+F428: 6A            ROR      A                ; ... the ...
+F429: 29 07         AND      #7               ; ... delay
+F42B: 18            CLC                       ; No accidental carry
+F42C: 2A            ROL      A                ; Every delay tick ...
+F42D: 2A            ROL      A                ; ... is *4 frames
+F42E: 85 9A         STA      MUSADEL          ; Store the note delay
+
+MusDoB:
+
+F430: C6 9D         DEC      MUSBDEL
+F432: D0 58         BNE      MusDoDone
+
+MusChanB:
+F434: A6 9E         LDX      MUSBIND
+F436: BD E9 F4      LDA      MUSICB,X
+F439: C9 00         CMP      #0
+F43B: F0 22         BEQ      MusCmdJumpB
+F43D: C9 01         CMP      #1
+F43F: F0 11         BEQ      MusCmdCtrlB
+F441: C9 02         CMP      #2
+F443: D0 28         BNE      MusCmdToneB
+F445: E8            INX
+F446: E6 9E         INC      MUSBIND
+F448: BD E9 F4      LDA      MUSICB,X
+F44B: E6 9E         INC      MUSBIND
+F44D: 85 9F         STA      MUSBVOL
+F44F: 4C 34 F4      JMP      MusChanB
+
+MusCmdCtrlB:
+F452: E8            INX
+F453: E6 9E         INC      MUSBIND
+F455: BD E9 F4      LDA      MUSICB,X
+F458: E6 9E         INC      MUSBIND
+F45A: 85 16         STA      AUDC1
+F45C: 4C 34 F4      JMP      MusChanB
+
+MusCmdJumpB:
+F45F: E8            INX
+F460: 8A            TXA
+F461: A8            TAY
+F462: E8            INX
+F463: 8A            TXA
+F464: 38            SEC
+F465: F9 E9 F4      SBC      MUSICB,Y
+F468: 85 9E         STA      MUSBIND
+F46A: 4C 34 F4      JMP      MusChanB
+
+MusCmdToneB:
+F46D: A4 9F         LDY      MUSBVOL
+F46F: 29 1F         AND      #0x1F
+F471: C9 1F         CMP      #0x1F
+F473: D0 02         BNE      MusNoteB
+F475: A0 00         LDY      #0
+MusNoteB:
+F477: 85 18         STA      AUDF1
+F479: 84 1A         STY      AUDV1
+F47B: BD E9 F4      LDA      MUSICB,X
+F47E: E6 9E         INC      MUSBIND
+F480: 6A            ROR      A
+F481: 6A            ROR      A
+F482: 6A            ROR      A
+F483: 6A            ROR      A
+F484: 6A            ROR      A
+F485: 29 07         AND      #7
+F487: 18            CLC
+F488: 2A            ROL      A
+F489: 2A            ROL      A
+F48A: 85 9D         STA      MUSBDEL
+
+MusDoDone:
+F48C: 60            RTS                       ; Done
+
+
+INIT_GO_FX:
+
+     ;  This function initializes the hardware and temporaries
+     ;  to play the soundeffect of a player hitting the wall
+
+F48D: A9 05         LDA      #5               ; Set counter for frame delay ...
+F48F: 85 8A         STA      MUS_TMP1         ; ... between frequency change
+F491: A9 03         LDA      #3               ; Tone type ...
+F493: 85 15         STA      AUDC0            ; ... poly tone
+F495: A9 0F         LDA      #15              ; Volume A ...
+F497: 85 19         STA      AUDV0            ; ... to max
+F499: A9 00         LDA      #0               ; Volume B ...
+F49B: 85 1A         STA      AUDV1            ; ... silence
+F49D: A9 F0         LDA      #240             ; Initial ...
+F49F: 85 89         STA      MUS_TMP0         ; ... sound ...
+F4A1: 85 17         STA      AUDF0            ; ... frequency
+F4A3: 60            RTS                       ; Done
+
+PROCESS_GO_FX:
+
+     ;  This function is called once per scanline to play the
+     ;  soundeffects of a player hitting the wall.
+
+F4A4: C6 8A         DEC      MUS_TMP1         ; Time to change the frequency?
+F4A6: D0 11         BNE      FxRun            ; No ... let it run
+F4A8: A9 05         LDA      #5               ; Reload ...
+F4AA: 85 8A         STA      MUS_TMP1         ; ... the frame count
+F4AC: E6 89         INC      MUS_TMP0         ; Increment ...
+F4AE: A5 89         LDA      MUS_TMP0         ; ... the frequency divisor
+F4B0: 85 17         STA      AUDF0            ; Change the frequency
+F4B2: C9 00         CMP      #0
+F4B4: D0 03         BNE      FxRun
+F4B6: A9 01         LDA      #1               ; All done ... return 1
+F4B8: 60            RTS                       ; Done
+FxRun:
+F4B9: A9 00         LDA      #0               ; Keep playing
+F4BB: 60            RTS                       ; Done
+
+  ;  ======================================
+  ;  Music commands for Channel A and Channel B
+
+  ;  A word on music and wall timing ...
+
+  ;  Wall moves between scanlines 0 and 111 (112 total)
+
+  ;  Wall-increment   frames-to-top
+  ;       3             336
+  ;       2             224
+  ;       1             112
+  ;      0.5             56  ; Ah ... but we are getting one less
+
+  ;  Each tick is multiplied by 4 to yield 4 frames per tick
+  ;  32 ticks/song = 32*4 = 128 frames / song
+
+  ;  We want songs to start with wall at top ...
+
+  ;  Find the least-common-multiple
+  ;  336 and 128 : 2688 8 walls, 21 musics
+  ;  224 and 128 :  896 4 walls,  7 musics
+  ;  112 and 128 :  896 8 walls,  7 musics
+  ;   56 and 128 :  896 16 walls, 7 musics
+
+  ;  Wall moving every other gives us 112*2=224 scanlines
+  ;  Song and wall are at start every 4
+  ;  1 scanline, every 8
+  ;  Wall delay=3 gives us 128*3=336 scanlines 2
+
+.MUSCMD_JUMP      =     0                ; Music command value for JUMP
+.MUSCMD_CONTROL   =     1                ; Music command value for CONTROL
+.MUSCMD_VOLUME    =     2                ; Music command value for VOLUME
+.MUS_REST         =     31               ; Frequency value for silence
+.MUS_DEL_1        =     32*1             ; Note duration 1
+.MUS_DEL_2        =     32*2             ; Note duration 2
+.MUS_DEL_3        =     32*3             ; Note duration 3
+.MUS_DEL_4        =     32*4             ; Note duration 4
+
+MUSICA:
+
+MA_SONG_1:
+
+F4BC: 01 0C         .byte    MUSCMD_CONTROL, 12
+F4BE: 02 0F         .byte    MUSCMD_VOLUME,  15 ; Volume (full)
+
+MA1_01:
+F4C0: 6F            .byte    MUS_DEL_3  +  15
+F4C1: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4C2: 6F            .byte    MUS_DEL_3  +  15
+F4C3: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4C4: 27            .byte    MUS_DEL_1  +  7
+F4C5: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4C6: 27            .byte    MUS_DEL_1  +  7
+F4C7: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4C8: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4C9: 28            .byte    MUS_DEL_1  +  8
+F4CA: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4CB: 9F            .byte    MUS_DEL_4  +  MUS_REST
+F4CC: 51            .byte    MUS_DEL_2  +  17
+F4CD: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4CE: 51            .byte    MUS_DEL_2  +  17
+F4CF: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4D0: 70            .byte    MUS_DEL_3  +  16
+F4D1: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4D2: 00 14         .byte    MUSCMD_JUMP, (MA1_END - MA1_01) ; Repeat back to top
+MA1_END:
+
+MA_SONG_2:
+F4D4: 01 0C         .byte    MUSCMD_CONTROL, 12
+F4D6: 02 0F         .byte    MUSCMD_VOLUME,  15
+
+MA2_01:
+F4D8: 2F            .byte    MUS_DEL_1  +  15
+F4D9: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4DA: 2F            .byte    MUS_DEL_1  +  15
+F4DB: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4DC: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4DD: 87            .byte    MUS_DEL_4  +  7
+F4DE: 9F            .byte    MUS_DEL_4  +  MUS_REST
+F4DF: 4F            .byte    MUS_DEL_2  +  15
+F4E0: 9F            .byte    MUS_DEL_4  +  MUS_REST
+F4E1: 4C            .byte    MUS_DEL_2  +  12
+F4E2: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4E3: 4F            .byte    MUS_DEL_2  +  15
+F4E4: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4E5: 51            .byte    MUS_DEL_2  +  17
+F4E6: 5F            .byte    MUS_DEL_2  +  MUS_REST
+F4E7: 00 11         .byte    MUSCMD_JUMP, (MA2_END - MA2_01) ; Repeat back to top
+MA2_END:
+
+MUSICB:
+
+MB_SONG_1:
+
+F4E9: 01 08         .byte    MUSCMD_CONTROL, 8
+F4EB: 02 08         .byte    MUSCMD_VOLUME,  8 ; Volume (half)
+
+MB1_01:
+F4ED: 2A            .byte    MUS_DEL_1  +  10
+F4EE: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4EF: 34            .byte    MUS_DEL_1  +  20
+F4F0: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4F1: 3E            .byte    MUS_DEL_1  +  30
+F4F2: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4F3: 2F            .byte    MUS_DEL_1  +  15
+F4F4: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4F5: 2A            .byte    MUS_DEL_1  +  10
+F4F6: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4F7: 34            .byte    MUS_DEL_1  +  20
+F4F8: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4F9: 3E            .byte    MUS_DEL_1  +  30
+F4FA: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4FB: 2F            .byte    MUS_DEL_1  +  15
+F4FC: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F4FD: 00 12         .byte    MUSCMD_JUMP, (MB1_END - MB1_01) ; Repeat back to top
+MB1_END:
+
+MB_SONG_2:
+
+F4FF: 01 08         .byte    MUSCMD_CONTROL, 8
+F501: 02 08         .byte    MUSCMD_VOLUME,  8
+
+MB2_01:
+F503: 21            .byte    MUS_DEL_1  +  1
+F504: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F505: 21            .byte    MUS_DEL_1  +  1
+F506: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F507: 21            .byte    MUS_DEL_1  +  1
+F508: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F509: 21            .byte    MUS_DEL_1  +  1
+F50A: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F50B: 3E            .byte    MUS_DEL_1  +  30
+F50C: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F50D: 3E            .byte    MUS_DEL_1  +  30
+F50E: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F50F: 3E            .byte    MUS_DEL_1  +  30
+F510: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F511: 3E            .byte    MUS_DEL_1  +  30
+F512: 3F            .byte    MUS_DEL_1  +  MUS_REST
+F513: 00 12         .byte    MUSCMD_JUMP, (MB2_END - MB2_01) ; Repeat back to top
+MB2_END:
+
+SKILL_VALUES:
+
+     ;  This table describes how to change the various
+     ;  difficulty parameters as the game progresses.
+     ;  For instance, the second entry in the table
+     ;  says that when the score is 4, change the values of
+     ;  wall-increment to 1, frame-delay to 2, gap-pattern to 0,
+     ;  MusicA to 24, and MusicB to 22.
+
+     ;  A 255 on the end of the table indicates the end
+
+     ;       Wall  Inc  Delay   Gap       MA                 MB
+F515: 00 01 03 00 00 00      .byte    0,     1,   3,     0  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+F51B: 04 01 02 00 18 16      .byte    4,     1,   2,     0  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+F521: 08 01 01 00 00 00      .byte    8,     1,   1,     0  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+F527: 10 01 01 01 18 16      .byte    16,    1,   1,     1  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+F52D: 18 01 01 03 00 00      .byte    24,    1,   1,     3  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+F533: 20 01 01 07 18 16      .byte    32,    1,   1,     7  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+F539: 28 01 01 0F 00 00      .byte    40,    1,   1,    15  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+F53F: 30 02 01 00 18 16      .byte    48,    2,   1,     0  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+F545: 40 02 01 01 00 00      .byte    64,    2,   1,     1  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+F54B: 50 02 01 03 18 16      .byte    80,    2,   1,     3  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+F551: 60 02 01 07 00 00      .byte    96 ,   2,   1,     7  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+F557: FF            .byte    255
+
+GR_PLAYER:
+     ;  Image for players (8x8)
+     .subs .=0, *=1
+     ;
+F558: 10            .byte    0b__...*....
+F559: 10            .byte    0b__...*....
+F55A: 28            .byte    0b__..*.*...
+F55B: 28            .byte    0b__..*.*...
+F55C: 54            .byte    0b__.*.*.*..
+F55D: 54            .byte    0b__.*.*.*..
+F55E: AA            .byte    0b__*.*.*.*.
+F55F: 7C            .byte    0b__.*****..
+
+DIGITS:
+     ;  Images for numbers
+     ;  We only need 5 rows, but the extra space on the end makes each digit 8 rows,
+     ;  which makes it the multiplication easier.
+
+F560: 0E            .byte   0b__....***.  ; 0 (leading 0 is blank)
+F561: 0A            .byte   0b__....*.*.
+F562: 0A            .byte   0b__....*.*.
+F563: 0A            .byte   0b__....*.*.
+F564: 0E            .byte   0b__....***.
+F565: 00            .byte   0b__........
+F566: 00            .byte   0b__........
+F567: 00            .byte   0b__........
+
+F568: 22            .byte   0b__..*...*.  ; 1
+F569: 22            .byte   0b__..*...*.
+F56A: 22            .byte   0b__..*...*.
+F56B: 22            .byte   0b__..*...*.
+F56C: 22            .byte   0b__..*...*.
+F56D: 00            .byte   0b__........
+F56E: 00            .byte   0b__........
+F56F: 00            .byte   0b__........
+
+F570: EE            .byte   0b__***.***.  ; 2
+F571: 22            .byte   0b__..*...*.
+F572: EE            .byte   0b__***.***.
+F573: 88            .byte   0b__*...*...
+F574: EE            .byte   0b__***.***.
+F575: 00            .byte   0b__........
+F576: 00            .byte   0b__........
+F577: 00            .byte   0b__........
+
+F578: EE            .byte   0b__***.***.  ; 3
+F579: 22            .byte   0b__..*...*.
+F57A: 66            .byte   0b__.**..**.
+F57B: 22            .byte   0b__..*...*.
+F57C: EE            .byte   0b__***.***.
+F57D: 00            .byte   0b__........
+F57E: 00            .byte   0b__........
+F57F: 00            .byte   0b__........
+
+F580: AA            .byte   0b__*.*.*.*.  ; 4
+F581: AA            .byte   0b__*.*.*.*.
+F582: EE            .byte   0b__***.***.
+F583: 22            .byte   0b__..*...*.
+F584: 22            .byte   0b__..*...*.
+F585: 00            .byte   0b__........
+F586: 00            .byte   0b__........
+F587: 00            .byte   0b__........
+
+F588: EE            .byte   0b__***.***. ; 5
+F589: 88            .byte   0b__*...*...
+F58A: EE            .byte   0b__***.***.
+F58B: 22            .byte   0b__..*...*.
+F58C: EE            .byte   0b__***.***.
+F58D: 00            .byte   0b__........
+F58E: 00            .byte   0b__........
+F58F: 00            .byte   0b__........
+
+F590: EE            .byte   0b__***.***. ; 6
+F591: 88            .byte   0b__*...*...
+F592: EE            .byte   0b__***.***.
+F593: AA            .byte   0b__*.*.*.*.
+F594: EE            .byte   0b__***.***.
+F595: 00            .byte   0b__........
+F596: 00            .byte   0b__........
+F597: 00            .byte   0b__........
+
+F598: EE            .byte   0b__***.***. ; 7
+F599: 22            .byte   0b__..*...*.
+F59A: 22            .byte   0b__..*...*.
+F59B: 22            .byte   0b__..*...*.
+F59C: 22            .byte   0b__..*...*.
+F59D: 00            .byte   0b__........
+F59E: 00            .byte   0b__........
+F59F: 00            .byte   0b__........
+
+F5A0: EE            .byte   0b__***.***. ; 8
+F5A1: AA            .byte   0b__*.*.*.*.
+F5A2: EE            .byte   0b__***.***.
+F5A3: AA            .byte   0b__*.*.*.*.
+F5A4: EE            .byte   0b__***.***.
+F5A5: 00            .byte   0b__........
+F5A6: 00            .byte   0b__........
+F5A7: 00            .byte   0b__........
+
+F5A8: EE            .byte   0b__***.***. ; 9
+F5A9: AA            .byte   0b__*.*.*.*.
+F5AA: EE            .byte   0b__***.***.
+F5AB: 22            .byte   0b__..*...*.
+F5AC: EE            .byte   0b__***.***.
+F5AD: 00            .byte   0b__........
+F5AE: 00            .byte   0b__........
+F5AF: 00            .byte   0b__........
+
+F7FA:
+  ; 6502 vectors
+F7FA: 00 F0         .word main
+F7FC: 00 F0         .word main  ; Reset vector (top of program)
+F7FE: 00 F0         .word main
