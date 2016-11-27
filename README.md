@@ -19,11 +19,11 @@ TODO insert pictures/info on the propeller-based FRAM programmer. Add the code h
 Before I make a custom board, I'll breadboard everything. I pulled the ROM off an Asteroids cartridge board
 and soldered on break-out wires. From right to left: GND, D0-D7, A0-A12, 5V. 
 
-![](https://github.com/topherCantrell/Atari-Sound-Card/blob/master/art/breakout.jpg)
+![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/breakout.jpg)
 
 This is a close-up of a Combat cartridge board without the ROM. Notice the missing A11 pin. The Combat game
 is only 2K bytes.
 
-![](https://github.com/topherCantrell/Atari-Sound-Card/blob/master/art/combat.jpg)
+![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/combat.jpg)
 
 
