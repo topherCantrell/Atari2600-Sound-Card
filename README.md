@@ -47,6 +47,6 @@ Mapping the AY38910 and the FRAM into the memory space:
 
 ![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/schematic.jpg)
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/memmap.jpg.jpg)
+![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/memmap.jpg)
 
 
