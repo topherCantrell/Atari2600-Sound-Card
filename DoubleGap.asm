@@ -1,13 +1,33 @@
 .cpu 6502
+                                           ;  DoubleGap by Christopher Cantrell 2006
+                                           ;  ccantrell@knology.net
+
+                                           ;  TO DO
+                                           ;  - Expert switches are backwards
+                                           ;  - Debounce switches
+
+                                           ;  build-command java Blend gap.asm g2.asm
+                                           ;  build-command tasm -b -65 g2.asm g2.bin
+
+                                           ;  This file uses the "BLEND" program for assembly pre-processing
+                                           ;  processor 6502
 
 .include "stella.asm"
 
-;  RAM usage
+                                           ;  The EditorTab comments are read by the SNAP editor, which makes
+                                           ;  assembly editing a ... SNAP!
+
+                                           ;
+
+                                           ;  RAM usage
 
 .TMP0             =     128
 .TMP1             =     129
 .TMP2             =     130
 .PLAYR0Y          =     131
+.PLAYR1Y          =     132
+.MUS_TMP0         =     133
+.MUS_TMP1         =     134
 .SCANCNT          =     135
 .MODE             =     136
 .WALL_INC         =     137
@@ -26,6 +46,12 @@
 .GAPBITS          =     150
 .SCORE_PF1        =     151
 .SCORE_PF2        =     157
+.MUSADEL          =     163
+.MUSAIND          =     164
+.MUSAVOL          =     165
+.MUSBDEL          =     166
+.MUSBIND          =     167
+.MUSBVOL          =     168
 
 F000:
 main:
@@ -117,7 +143,7 @@ DrawVisibleRows:
          LDA   TMP0            ; Get A ready (PF0 value)
 	     STA   WSYNC           ; Wait for very start of row
 	     STX   GRP0            ; Player 0 -- in X
-	     ;STY   GRP1            ; Player 1 -- in Y
+	     STY   GRP1            ; Player 1 -- in Y
 	     STA   PF0             ; PF0      -- in TMP0 (already in A)
 	     LDA   TMP1            ; PF1      -- in TMP1
 	     STA   PF1             ; ...
@@ -137,7 +163,7 @@ DrawVisibleRows:
 	     STA   WSYNC           ; Next scanline
 	     STA   PF0             ; Play field 0 off
 	     STA   GRP0            ; Player 0 off
-	     ;STA   GRP1            ; Player 1 off
+	     STA   GRP1            ; Player 1 off
 	     STA   PF1             ; Play field 1 off
 	     STA   PF2             ; Play field 2 off
 	     STA   WSYNC           ; Next scanline
@@ -164,7 +190,13 @@ BUILDROW:
 	     CMP   PLAYR0Y         ; Scanline group of the P0 object?
 	     BEQ   ShowP0          ; Yes ... keep the picture
 	     LDX   #0              ; Not time for Player 0 ... no graphics
+
 ShowP0:
+	     CMP   PLAYR1Y         ; Scanline group of the P1 object?
+	     BEQ   ShowP1          ; Yes ... keep the picture
+	     LDY   #0              ; Not time for Player 0 ... no graphics
+
+ShowP1:
 	     LDA   WALLSTART       ; Calculate ...
 	     CLC                   ; ... the bottom ...
 	     ADC   WALLHEI         ; ... of ...
@@ -264,6 +296,14 @@ TimeP0Pos:
     BNE      TimeP0Pos        ; ... position
     STA      RESP0            ; Mark player 0's X position
 
+TimeP1Pos:
+    DEY                       ; Kill time while the beam moves ...
+    CPY      #0               ; ... to desired ...
+    BNE      TimeP1Pos        ; ... position
+    STA      RESP1            ; Mark player 1's X position
+
+    JSR      EXPERTISE        ; Initialize the players' Y positions base on expert-settings
+
     LDA      #10              ; Wall is ...
     STA      WALLHEI          ; ... 10 double-scanlines high
 
@@ -329,7 +369,10 @@ NoSelect:
 
 NoFirst:
      LDA      CXP0FB           ; Player 0 collision with playfield
-     AND      #128             ; Did player hit ...
+     STA      TMP0             ; Hold it
+     LDA      CXP1FB           ; Player 1 collision with playfield
+     ORA      TMP0             ; Did either ...
+     AND      #128             ; ... player hit ...
      CMP      #0               ; ... wall?
      BEQ      NoHit            ; No ... move on
      JSR      INIT_GOMODE      ; Go to Game-Over mode
@@ -354,12 +397,33 @@ MoveP0Left:
 SetMoveP0:
      STA      HMP0             ; New movement value P0
 
+     LDA      SWCHA            ; Joystick
+     AND      #8               ; Player 1 ...
+     CMP      #0               ; ... moving left?
+     BEQ      MoveP1Left       ; Yes ... move left
+     LDA      SWCHA            ; Joystick
+     AND      #4               ; Player 0 ...
+     CMP      #0               ; ... moving right?
+     BEQ      MoveP1Right      ; Yes ... move right
+     LDA      #0               ; Not moving value
+     JMP      SetMoveP1        ; Don't move the player
+MoveP1Right:
+     LDA      #16              ; +1
+     JMP      SetMoveP1        ; Set HMP0
+MoveP1Left:
+     LDA      #240             ; -1
+SetMoveP1:
+     STA      HMP1             ; New movement value P1
+
      RTS                       ; Done
 
 INIT_SELMODE:
      ;
      ;  This function initializes the games SELECT-MODE
      ;
+     LDA      #0               ; Turn off ...
+     STA      AUDV0            ; ... all ...
+     STA      AUDV1            ; ... sound
      LDA      #200             ; Background ...
      STA      COLUBK           ; ... greenish bright
      LDA      #2               ; Now in ...
@@ -378,6 +442,17 @@ SELMODE:
      BEQ      SelStartGame     ; Yes ... start game
      CMP      #3               ; RESET and SELECT?
      BEQ      SelStartGame     ; Yes ... start game
+     CMP      #2               ; Select only?
+     BNE      SelExp           ; No ... stay in this mode
+     LDA      PLAYR1Y          ; Select toggled. Get player 1 Y coordinate
+     CMP      #255             ; 2nd player on the screen?
+     BEQ      SelP1On          ; No ... toggle it on
+     LDA      #255             ; Yes ...
+     STA      PLAYR1Y          ; ... toggle it off
+     JMP      SelExp           ; Move to expertise
+SelP1On:
+     LDA      #12              ; Y coordinate
+     STA      PLAYR1Y          ; On screen now
      JMP      SelExp           ; Move to expertise
 
 SelStartGame:
@@ -391,8 +466,29 @@ INIT_GOMODE:
      ;  This function initializes the GAME-OVER game mode.
 
      STA      HMCLR            ; Stop both players from moving
+     LDA      CXP0FB           ; P0 collision ...
+     AND      #128             ; ... with wall
+     CMP      #0               ; Did P0 hit the wall?
+     BNE      GoCheckP1        ; Yes ... leave it at bottom
+     LDA      #2               ; No ... move player 0 ...
+     STA      PLAYR0Y          ; ... up the screen to show win
+
+GoCheckP1:
+     LDA      CXP1FB           ; P1 collision ...
+     AND      #128             ; ... with wall
+     CMP      #0               ; Did P1 hit the wall?
+     BNE      GoP1Hit          ; Yes ... leave it at the bottom
+     LDA      PLAYR1Y          ; Is P1 even ...
+     CMP      #255             ; ... on the screen (2 player game?)
+     BEQ      GoP1Hit          ; No ... skip it
+     LDA      #2               ; Player 1 is onscreen and didn't collide ...
+     STA      PLAYR1Y          ; ... move up the screen to show win
+
+GoP1Hit:
      LDA      #0               ; Going to ...
      STA      MODE             ; ... game-over mode
+     STA      AUDV0            ; Turn off any ...
+     STA      AUDV1            ; ... sound
      JSR      INIT_GO_FX       ; Initialize sound effects
      RTS                       ; Done
 
@@ -559,9 +655,37 @@ CountDone:
 
 EXPERTISE:
 
-  LDA      #12              ; near the bottom
-  STA      PLAYR0Y          ; Player 0 Y coordinate
-  RTS                       ; Done
+     ;  This function changes the Y position of the players based on the
+     ;  position of their respective pro/novice switches. The player 1
+     ;  position is NOT changed if the mode is a single-player game.
+
+     LDA      SWCHB            ; Check P0 ...
+     AND      #0x40            ; ... pro/novice settings
+     CMP      #0               ; Amateur?
+     BEQ      ExpP0Ama         ; Yes ... near the bottom of screen
+     LDA      #8               ; Pro ... near the top
+     JMP      ExpP1            ; Store and check P0
+ExpP0Ama:
+     LDA      #12              ; near the bottom
+
+ExpP1:
+     STA      PLAYR0Y          ; Player 0 Y coordinate
+
+     LDX      PLAYR1Y          ; Is P1 on ...
+     CPX      #255             ; ... the screen?
+     BEQ      ExpNoP1          ; No ... skip all this
+     LDA      SWCHB            ; Check P1 ...
+     AND      #0x80            ; ... pro/novice settings
+     CMP      #0               ; Amateur?
+     BEQ      ExpP1Ama         ; Yes ... near the bottom of the screen
+     LDX      #8               ; Pro ... near the top
+     JMP      ExpDone          ; Store and out
+ExpP1Ama:
+     LDX      #12              ; Novice ... near the bottom
+ExpDone:
+     STX      PLAYR1Y          ; Player 1 Y coordinate
+ExpNoP1:
+     RTS                       ; Done
 
 ADJUST_DIF:
 
@@ -589,6 +713,15 @@ AdjCheckTable:
      INX                       ; Copy ...
      LDA      SKILL_VALUES,X   ; ... new ...
      STA      GAPBITS          ; ... gap pattern
+     INX                       ; Copy ...
+     LDA      SKILL_VALUES,X   ; ... new ...
+     STA      MUSAIND          ; ... MusicA index
+     INX                       ; Copy ...
+     LDA      SKILL_VALUES,X   ; ... new ...
+     STA      MUSBIND          ; ... MusicB index
+     LDA      #1               ; Force ...
+     STA      MUSADEL          ; ... music to ...
+     STA      MUSBDEL          ; ... start new
      RTS                       ; Done
 AdjBump:
      INX                       ; Move ...
@@ -621,10 +754,338 @@ SelDebounce:
 
 
 INIT_MUSIC:
-PROCESS_MUSIC:
-INIT_GO_FX:
-PROCESS_GO_FX:
+
+     ;  This function initializes the hardware and temporaries
+     ;  for 2-channel music
+
+     LDA      #6               ; Audio control ...
+     STA      AUDC0            ; ... to pure ...
+     STA      AUDC1            ; ... tones
+     LDA      #0               ; Turn off ...
+     STA      AUDV0            ; ... all ...
+     STA      AUDV1            ; ... sound
+     STA      MUSAIND          ; Music pointers ...
+     STA      MUSBIND          ; ... to top of data
+     LDA      #1               ; Force ...
+     STA      MUSADEL          ; ... music ...
+     STA      MUSBDEL          ; ... reload
+     LDA      #15              ; Set volume levels ...
+     STA      MUSAVOL          ; ... to ...
+     STA      MUSBVOL          ; ... maximum
      RTS                       ; Done
+
+PROCESS_MUSIC:
+
+     ;  This function is called once per frame to process the
+     ;  2 channel music. Two tables contain the commands/notes
+     ;  for individual channels. This function changes the
+     ;  notes at the right time.
+
+     DEC      MUSADEL          ; Current note on Channel A ended?
+     BNE      MusDoB           ; No ... let it play
+
+MusChanA:
+     LDX      MUSAIND          ; Voice-A index
+     LDA      MUSICA,X         ; Get the next music command
+     CMP      #0               ; Jump?
+     BEQ      MusCmdJumpA      ; Yes ... handle it
+     CMP      #1               ; Control?
+     BEQ      MusCmdCtrlA      ; Yes ... handle it
+     CMP      #2               ; Volume?
+     BNE      MusCmdToneA      ; No ... must be a note
+     INX                       ; Point to volume value
+     INC      MUSAIND          ; Bump the music pointer
+     LDA      MUSICA,X         ; Get the volume value
+     INC      MUSAIND          ; Bump the music pointer
+     STA      MUSAVOL          ; Store the new volume value
+     JMP      MusChanA         ; Keep processing through a tone
+
+MusCmdCtrlA:
+     INX                       ; Point to the control value
+     INC      MUSAIND          ; Bump the music pointer
+     LDA      MUSICA,X         ; Get the control value
+     INC      MUSAIND          ; Bump the music pointer
+     STA      AUDC0            ; Store the new control value
+     JMP      MusChanA         ; Keep processing through a tone
+
+MusCmdJumpA:
+     INX                       ; Point to jump value
+     TXA                       ; X to ...
+     TAY                       ; ... Y (pointer to jump value)
+     INX                       ; Point one past jump value
+     TXA                       ; Into A so we can subtract
+     SEC                       ; New ...
+     SBC      MUSICA,Y         ; ... index
+     STA      MUSAIND          ; Store it
+     JMP      MusChanA         ; Keep processing through a tone
+
+MusCmdToneA:
+     LDY      MUSAVOL          ; Get the volume
+     AND      #0x1F            ; Lower 5 bits are frequency
+     CMP      #0x1F            ; Is this a silence?
+     BNE      MusNoteA         ; No ... play it
+     LDY      #0               ; Frequency of 31 flags silence
+MusNoteA:
+     STA      AUDF0            ; Store the frequency
+     STY      AUDV0            ; Store the volume
+     LDA      MUSICA,X         ; Get the note value again
+     INC      MUSAIND          ; Bump to the next command
+     ROR      A                ; The upper ...
+     ROR      A                ; ... three ...
+     ROR      A                ; ... bits ...
+     ROR      A                ; ... hold ...
+     ROR      A                ; ... the ...
+     AND      #7               ; ... delay
+     CLC                       ; No accidental carry
+     ROL      A                ; Every delay tick ...
+     ROL      A                ; ... is *4 frames
+     STA      MUSADEL          ; Store the note delay
+
+MusDoB:
+
+     DEC      MUSBDEL
+     BNE      MusDoDone
+
+MusChanB:
+     LDX      MUSBIND
+     LDA      MUSICB,X
+     CMP      #0
+     BEQ      MusCmdJumpB
+     CMP      #1
+     BEQ      MusCmdCtrlB
+     CMP      #2
+     BNE      MusCmdToneB
+     INX
+     INC      MUSBIND
+     LDA      MUSICB,X
+     INC      MUSBIND
+     STA      MUSBVOL
+     JMP      MusChanB
+
+MusCmdCtrlB:
+     INX
+     INC      MUSBIND
+     LDA      MUSICB,X
+     INC      MUSBIND
+     STA      AUDC1
+     JMP      MusChanB
+
+MusCmdJumpB:
+     INX
+     TXA
+     TAY
+     INX
+     TXA
+     SEC
+     SBC      MUSICB,Y
+     STA      MUSBIND
+     JMP      MusChanB
+
+MusCmdToneB:
+     LDY      MUSBVOL
+     AND      #0x1F
+     CMP      #0x1F
+     BNE      MusNoteB
+     LDY      #0
+MusNoteB:
+     STA      AUDF1
+     STY      AUDV1
+     LDA      MUSICB,X
+     INC      MUSBIND
+     ROR      A
+     ROR      A
+     ROR      A
+     ROR      A
+     ROR      A
+     AND      #7
+     CLC
+     ROL      A
+     ROL      A
+     STA      MUSBDEL
+
+MusDoDone:
+     RTS                       ; Done
+
+
+INIT_GO_FX:
+
+     ;  This function initializes the hardware and temporaries
+     ;  to play the soundeffect of a player hitting the wall
+
+     LDA      #5               ; Set counter for frame delay ...
+     STA      MUS_TMP1         ; ... between frequency change
+     LDA      #3               ; Tone type ...
+     STA      AUDC0            ; ... poly tone
+     LDA      #15              ; Volume A ...
+     STA      AUDV0            ; ... to max
+     LDA      #0               ; Volume B ...
+     STA      AUDV1            ; ... silence
+     LDA      #240             ; Initial ...
+     STA      MUS_TMP0         ; ... sound ...
+     STA      AUDF0            ; ... frequency
+     RTS                       ; Done
+
+PROCESS_GO_FX:
+
+     ;  This function is called once per scanline to play the
+     ;  soundeffects of a player hitting the wall.
+
+     DEC      MUS_TMP1         ; Time to change the frequency?
+     BNE      FxRun            ; No ... let it run
+     LDA      #5               ; Reload ...
+     STA      MUS_TMP1         ; ... the frame count
+     INC      MUS_TMP0         ; Increment ...
+     LDA      MUS_TMP0         ; ... the frequency divisor
+     STA      AUDF0            ; Change the frequency
+     CMP      #0
+     BNE      FxRun
+     LDA      #1               ; All done ... return 1
+     RTS                       ; Done
+FxRun:
+     LDA      #0               ; Keep playing
+     RTS                       ; Done
+
+	 ;  ======================================
+	 ;  Music commands for Channel A and Channel B
+
+	 ;  A word on music and wall timing ...
+
+	 ;  Wall moves between scanlines 0 and 111 (112 total)
+
+	 ;  Wall-increment   frames-to-top
+	 ;       3             336
+	 ;       2             224
+	 ;       1             112
+	 ;      0.5             56  ; Ah ... but we are getting one less
+
+	 ;  Each tick is multiplied by 4 to yield 4 frames per tick
+	 ;  32 ticks/song = 32*4 = 128 frames / song
+
+	 ;  We want songs to start with wall at top ...
+
+	 ;  Find the least-common-multiple
+	 ;  336 and 128 : 2688 8 walls, 21 musics
+	 ;  224 and 128 :  896 4 walls,  7 musics
+	 ;  112 and 128 :  896 8 walls,  7 musics
+	 ;   56 and 128 :  896 16 walls, 7 musics
+
+	 ;  Wall moving every other gives us 112*2=224 scanlines
+	 ;  Song and wall are at start every 4
+	 ;  1 scanline, every 8
+	 ;  Wall delay=3 gives us 128*3=336 scanlines 2
+
+.MUSCMD_JUMP      =     0                ; Music command value for JUMP
+.MUSCMD_CONTROL   =     1                ; Music command value for CONTROL
+.MUSCMD_VOLUME    =     2                ; Music command value for VOLUME
+.MUS_REST         =     31               ; Frequency value for silence
+.MUS_DEL_1        =     32*1             ; Note duration 1
+.MUS_DEL_2        =     32*2             ; Note duration 2
+.MUS_DEL_3        =     32*3             ; Note duration 3
+.MUS_DEL_4        =     32*4             ; Note duration 4
+
+MUSICA:
+
+MA_SONG_1:
+
+     .byte    MUSCMD_CONTROL, 12
+     .byte    MUSCMD_VOLUME,  15 ; Volume (full)
+
+MA1_01:
+     .byte    MUS_DEL_3  +  15
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_3  +  15
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  7
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  7
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUS_DEL_1  +  8
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_4  +  MUS_REST
+     .byte    MUS_DEL_2  +  17
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUS_DEL_2  +  17
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUS_DEL_3  +  16
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUSCMD_JUMP, (MA1_END - MA1_01) ; Repeat back to top
+MA1_END:
+
+MA_SONG_2:
+     .byte    MUSCMD_CONTROL, 12
+     .byte    MUSCMD_VOLUME,  15
+
+MA2_01:
+     .byte    MUS_DEL_1  +  15
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  15
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUS_DEL_4  +  7
+     .byte    MUS_DEL_4  +  MUS_REST
+     .byte    MUS_DEL_2  +  15
+     .byte    MUS_DEL_4  +  MUS_REST
+     .byte    MUS_DEL_2  +  12
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUS_DEL_2  +  15
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUS_DEL_2  +  17
+     .byte    MUS_DEL_2  +  MUS_REST
+     .byte    MUSCMD_JUMP, (MA2_END - MA2_01) ; Repeat back to top
+MA2_END:
+
+MUSICB:
+
+MB_SONG_1:
+
+     .byte    MUSCMD_CONTROL, 8
+     .byte    MUSCMD_VOLUME,  8 ; Volume (half)
+
+MB1_01:
+     .byte    MUS_DEL_1  +  10
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  20
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  30
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  15
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  10
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  20
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  30
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  15
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUSCMD_JUMP, (MB1_END - MB1_01) ; Repeat back to top
+MB1_END:
+
+MB_SONG_2:
+
+     .byte    MUSCMD_CONTROL, 8
+     .byte    MUSCMD_VOLUME,  8
+
+MB2_01:
+     .byte    MUS_DEL_1  +  1
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  1
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  1
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  1
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  30
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  30
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  30
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUS_DEL_1  +  30
+     .byte    MUS_DEL_1  +  MUS_REST
+     .byte    MUSCMD_JUMP, (MB2_END - MB2_01) ; Repeat back to top
+MB2_END:
 
 SKILL_VALUES:
 
@@ -638,17 +1099,17 @@ SKILL_VALUES:
      ;  A 255 on the end of the table indicates the end
 
      ;       Wall  Inc  Delay   Gap       MA                 MB
-     .byte    0,     1,   3,     0  ,0 , 0
-     .byte    4,     1,   2,     0  ,0 , 0
-     .byte    8,     1,   1,     0  ,0 , 0
-     .byte    16,    1,   1,     1  ,0 , 0
-     .byte    24,    1,   1,     3  ,0 , 0
-     .byte    32,    1,   1,     7  ,0 , 0
-     .byte    40,    1,   1,    15  ,0 , 0
-     .byte    48,    2,   1,     0  ,0 , 0
-     .byte    64,    2,   1,     1  ,0 , 0
-     .byte    80,    2,   1,     3  ,0 , 0
-     .byte    96 ,   2,   1,     7  ,0 , 0
+     .byte    0,     1,   3,     0  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+     .byte    4,     1,   2,     0  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+     .byte    8,     1,   1,     0  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+     .byte    16,    1,   1,     1  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+     .byte    24,    1,   1,     3  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+     .byte    32,    1,   1,     7  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+     .byte    40,    1,   1,    15  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+     .byte    48,    2,   1,     0  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+     .byte    64,    2,   1,     1  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
+     .byte    80,    2,   1,     3  ,MA_SONG_2-MUSICA , MB_SONG_2-MUSICB
+     .byte    96 ,   2,   1,     7  ,MA_SONG_1-MUSICA , MB_SONG_1-MUSICB
      .byte    255
 
 GR_PLAYER:
