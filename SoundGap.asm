@@ -223,8 +223,8 @@ SHOWSCORE:
 	     STA   PF2             ; ... onto the new row
 
 	     LDX   #6              ; Wait for ...
-delay1:  DEX                   ; ... left half of ...
-	     BNE   delay1          ; ... playfield
+Delay1:  DEX                   ; ... left half of ...
+	     BNE   Delay1          ; ... playfield
 
 	     ;  The beam is past the left half of the field again.
 	     ;  Turn off the playfield.
@@ -310,39 +310,39 @@ NoSelect:
 	     JSR   NEW_GAPS        ; Calculate the new gap position
 
 NoFirst:
-	     LDA   CXP0FB           ; Player 0 collision with playfield
-	     AND   #128             ; Did player hit wall?
-	     BEQ   NoHit            ; No ... move on
-	     JMP   INIT_GOMODE      ; Go to Game-Over mode
+	     LDA   CXP0FB          ; Player 0 collision with playfield
+	     AND   #128            ; Did player hit wall?
+	     BEQ   NoHit           ; No ... move on
+	     JMP   INIT_GOMODE     ; Go to Game-Over mode
 
 NoHit:
-	     LDA   SWCHA            ; Joystick
-	     AND   #128             ; Player 0 ... moving left
-	     BEQ   MoveP0Left       ; Yes ... move left
-	     LDA   SWCHA            ; Joystick
-	     AND   #64              ; Player 0 ... moving right?
-	     BEQ   MoveP0Right      ; Yes ... move right
-	     LDA   #0               ; Not moving value
-	     JMP   SetMoveP0        ; Don't move the player
+	     LDA   SWCHA           ; Joystick
+	     AND   #128            ; Player 0 ... moving left
+	     BEQ   MoveP0Left      ; Yes ... move left
+	     LDA   SWCHA           ; Joystick
+	     AND   #64             ; Player 0 ... moving right?
+	     BEQ   MoveP0Right     ; Yes ... move right
+	     LDA   #0              ; Not moving value
+	     JMP   SetMoveP0       ; Don't move the player
 MoveP0Right:
-	     LDA   #16              ; +1
-	     JMP   SetMoveP0        ; Set HMP0
+	     LDA   #16             ; +1
+	     JMP   SetMoveP0       ; Set HMP0
 MoveP0Left:
 	     INC   entropya
-	     LDA   #240             ; -1
+	     LDA   #240            ; -1
 SetMoveP0:
-	     STA   HMP0             ; New movement value P0
-	     RTS                       ; Done
+	     STA   HMP0            ; New movement value P0
+	     RTS                   
 
 INIT_SELMODE:
 	     ;
 	     ;  This function initializes the games SELECT-mode
 	     ;
-	     LDA   #200             ; Background ...
-	     STA   COLUBK           ; ... greenish bright
-	     LDA   #2               ; Now in ...
-	     STA   mode             ; SELECT game mode
-out1:    RTS                       ; Done
+	     LDA   #200            ; Background ...
+	     STA   COLUBK          ; ... greenish bright
+	     LDA   #2              ; Now in ...
+	     STA   mode            ; SELECT game mode
+Out1:    RTS   
 
 SELMODE:
 	     ;
@@ -350,20 +350,20 @@ SELMODE:
 	     ;  The wall moves here, but doesn't change or collide with players.
 	     ;  This function selects between 1 and 2 player game.
 	     ;
-	     JSR   MOVE_WALLS       ; Move the walls
-	     JSR   SEL_RESET_CHK    ; Check the reset/select switches
-	     AND   #1               ; RESET button?
-	     BEQ   out1             ; No ... skip
-	     JMP   INIT_PLAYMODE    ; Reset toggled ... start game
+	     JSR   MOVE_WALLS      ; Move the walls
+	     JSR   SEL_RESET_CHK   ; Check the reset/select switches
+	     AND   #1              ; RESET button?
+	     BEQ   Out1            ; No ... skip
+	     JMP   INIT_PLAYMODE   ; Reset toggled ... start game
 
 INIT_GOMODE:
 
 	     ;  This function initializes the GAME-OVER game mode.
 
-	     STA   HMCLR            ; Stop both players from moving
-	     LDA   #0               ; Going to ...
-	     STA   mode             ; ... game-over mode
-	     JMP   INIT_GO_FX       ; Initialize sound effects
+	     STA   HMCLR           ; Stop both players from moving
+	     LDA   #0              ; Going to ...
+	     STA   mode            ; ... game-over mode
+	     JMP   INIT_GO_FX      ; Initialize sound effects
 
 GOMODE:
 
@@ -371,65 +371,64 @@ GOMODE:
 	     ; over sequence. When the sound effect has finished, the
 	     ; game switches to select mode.
 
-	     JSR   PROCESS_GO_FX    ; Process the sound effects
-	     CMP   #0               ; Effects still running?
-	     BNE   out1      ; Yes ... let them run
-	     JMP   INIT_SELMODE     ; When effect is over, go to select mode
+	     JSR   PROCESS_GO_FX   ; Process the sound effects
+	     CMP   #0              ; Effects still running?
+	     BNE   Out1            ; Yes ... let them run
+	     JMP   INIT_SELMODE    ; When effect is over, go to select mode
 
 MOVE_WALLS:
 
 	     ;  This function moves the wall down the screen and back to position 0
 	     ;  when it reaches (or passes) 112.
 
-	     DEC   walldely         ; Wall motion timer
-	     LDA   walldely         ; Time to ...
-	     BNE   WallDone         ; No ... leave it alone
-	     LDA   walldelyr        ; Reset the ...
-	     STA   walldely         ; ... delay count
-	     LDA   wallstart        ; Current wall position
-	     CLC                       ; Increment ...
-	     ADC   wall_inc         ; ... wall position
-	     CMP   #112             ; At the bottom?
-	     BCC   WallOK           ; No ... leave it alone
-	     LDA   #0               ; Else restart ...
-	     STA   wallstart        ; ... wall at top of screen
-	     LDA   #1               ; Return flag that wall DID restart
+	     DEC   walldely        ; Wall motion timer
+	     LDA   walldely        ; Time to ...
+	     BNE   WallDone        ; No ... leave it alone
+	     LDA   walldelyr       ; Reset the ...
+	     STA   walldely        ; ... delay count
+	     LDA   wallstart       ; Current wall position
+	     CLC                   ; Increment ...
+	     ADC   wall_inc        ; ... wall position
+	     CMP   #112            ; At the bottom?
+	     BCC   WallOK          ; No ... leave it alone
+	     LDA   #0              ; Else restart ...
+	     STA   wallstart       ; ... wall at top of screen
+	     LDA   #1              ; Return flag that wall DID restart
 	     RTS
 WallOK:
-     	 STA   wallstart        ; Store new wall position
+     	 STA   wallstart       ; Store new wall position
 WallDone:
-	     LDA   #0               ; Return flag that wall did NOT restart
+	     LDA   #0              ; Return flag that wall did NOT restart
 	     RTS
 
-NEW_GAPS:                                  ;  --SubroutineContextBegins--
+NEW_GAPS:
 	     ;  This function builds the PF0, PF1, and PF2 graphics for a wall
 	     ;  with the gap pattern (gapbits) placed at random in the 20 bit
 	     ;  area.
 
-	     LDA   #255             ; Start with ...
-	     STA   walldrela        ; ... solid wall in PF0 ...
-	     STA   walldrelb        ; ... and PF1
-	     LDA   gapbits          ; Store the gap pattern ...
-	     STA   walldrelc        ; ... in PF2
+	     LDA   #255            ; Start with ...
+	     STA   walldrela       ; ... solid wall in PF0 ...
+	     STA   walldrelb       ; ... and PF1
+	     LDA   gapbits         ; Store the gap pattern ...
+	     STA   walldrelc       ; ... in PF2
 
-         LDA   entropya         ; OLine=552  Get ...
-
-         AND   #15              ; 0 to 15
-	     CMP   #12              ; Too far to the right?
-	     BEQ   GapOK            ; No ... 12 is OK
-	     BCC   GapOK            ; No ... less than 12 is OK
-	     SBC   #9               ; Back up 9
+         LDA   entropya        ; Get random
+         AND   #15             ; 0 to 15
+	     CMP   #12             ; Too far to the right?
+	     BEQ   GapOK           ; No ... 12 is OK
+	     BCC   GapOK           ; No ... less than 12 is OK
+	     SBC   #9              ; Back up 9
 
 GapOK:
-	     CMP   #0               ; Gap already at far left?
-	     BEQ   out1          ; Yes ... done
-	     SEC                       ; Roll gap ...
-	     ROR   walldrelc        ; ... left ...
-	     ROL   walldrelb        ; ... desired ...
-	     ROR   walldrela        ; ... times ...
-	     SEC                       ; All rolls ...
-	     SBC   #1               ; ... done?
-	     JMP   GapOK            ; No ... do them all
+	     CMP   #0              ; Gap already at far left?
+	     BEQ   Out1            ; Yes ... done
+	     SEC                   ; Roll gap ...
+	     ROR   walldrelc       ; ... left ...
+	     ROL   walldrelb       ; ... desired ...
+	     ROR   walldrela       ; ... times ...
+	     SEC                   ; All rolls ...
+	     SBC   #1              ; ... done?
+	     JMP   GapOK           ; No ... do them all
 
 MAKE_SCORE:
 
@@ -437,34 +436,34 @@ MAKE_SCORE:
 	     ;  the byte value passed in A. The current implementation is
 	     ;  two-digits only ... PF2 is blank.
 
-	     LDX   #0               ; 100's digit
-	     LDY   #0               ; 10's digit
+	     LDX   #0              ; 100's digit
+	     LDY   #0              ; 10's digit
 
 Count100s:
-	     CMP   #100             ; Need another 100s digit?
-	     BCC   Count10s         ; No ... move on to 10s
-	     INX                       ; Count ...
-	     SEC                       ; ... value
-	     SBC   #100             ; Take off this 100
-	     JMP   Count100s        ; Keep counting
+	     CMP   #100            ; Need another 100s digit?
+	     BCC   Count10s        ; No ... move on to 10s
+	     INX                   ; Count ...
+	     SEC                   ; ... value
+	     SBC   #100            ; Take off this 100
+	     JMP   Count100s       ; Keep counting
 Count10s:
-	     CMP   #10              ; Need another 10s digit?
-	     BCC   CountDone        ; No ... got all the tens
-	     INY                       ; Count ...
-	     SEC                       ; ... value
-	     SBC   #10              ; Take off this 10
-	     JMP   Count10s         ; Keep counting
+	     CMP   #10             ; Need another 10s digit?
+	     BCC   CountDone       ; No ... got all the tens
+	     INY                   ; Count ...
+	     SEC                   ; ... value
+	     SBC   #10             ; Take off this 10
+	     JMP   Count10s        ; Keep counting
 
 CountDone:
-	     ASL   A                ; One's digit ...
-	     ASL   A                ; ... *8 ....
-	     ASL   A                ; ... to find picture
+	     ASL   A               ; One's digit ...
+	     ASL   A               ; ... *8 ....
+	     ASL   A               ; ... to find picture
 	     STA   tmp1
-	     TYA                       ; Now the 10's digit
-	     ASL   A                ; Multiply ...
-	     ASL   A                ; ... by 8 ...
-	     ASL   A                ; ... to find picture
-	     STA   tmp2                      ; 10's picture in Y
+	     TYA                   ; Now the 10's digit
+	     ASL   A               ; Multiply ...
+	     ASL   A               ; ... by 8 ...
+	     ASL   A               ; ... to find picture
+	     STA   tmp2            ; 10's picture in Y
 
 	     ; We have plenty of code space. Time and registers are at a premium.
 	     ; So copy/past the code for each row
@@ -472,23 +471,23 @@ CountDone:
 	     LDA   #0
 	     STA   tmp3
 
-scoreLoop:
+ScoreLoop:
 	     LDX   tmp2
-	     LDA   DIGITS,X         ; Get the 10's digit
-	     AND   #0xF0            ; Upper nibble
-	     STA   tmp0        ; Store left side
+	     LDA   DIGITS,X        ; Get the 10's digit
+	     AND   #0xF0           ; Upper nibble
+	     STA   tmp0            ; Store left side
 	     LDX   tmp1
-	     LDA   DIGITS,X         ; Get the 1's digit
-	     AND   #0x0F            ; Lower nibble
-	     ORA   tmp0        ; Put left and right half together
+	     LDA   DIGITS,X        ; Get the 1's digit
+	     AND   #0x0F           ; Lower nibble
+	     ORA   tmp0            ; Put left and right half together
 	     LDX   tmp3
-	     STA   score_pf1,X        ; And store image
+	     STA   score_pf1,X     ; And store image
 	     INC   tmp1
 	     INC   tmp2
 	     INC   tmp3
 	     LDA   tmp3
 	     CMP   #5
-	     BNE   scoreLoop
+	     BNE   ScoreLoop
 
 	     RTS
 
@@ -498,39 +497,39 @@ ADJUST_DIF:
 	     ;  current score. The music can also change with the difficulty. A single
 	     ;  table describes the new values and when they take effect.
 
-	     LDX   #0               ; Starting at index 0
+	     LDX   #0              ; Starting at index 0
 
 AdjNextRow:
-	     LDA   SKILL_VALUES,X   ; Get the score match
-	     CMP   #255             ; At the end of the table?
-	     BEQ   out2    ; Yes ... leave it alone
+	     LDA   SKILL_VALUES,X  ; Get the score match
+	     CMP   #255            ; At the end of the table?
+	     BEQ   Out2            ; Yes ... leave it alone
 
-	     CMP   wallcnt          ; Is this our entry?
-	     BNE   AdjBump          ; No ... bump to next
+	     CMP   wallcnt         ; Is this our entry?
+	     BNE   AdjBump         ; No ... bump to next
 
-	     LDY   #1               ; Increment by 1 ...
-	     CMP   #64              ; ... until 64 rows ...
-	     BCC   stillLow         ; ... then ...
-	     INY                       ; ... by 2
-stillLow:
-	     STY   wall_inc              ; New increment
+	     LDY   #1              ; Increment by 1 ...
+	     CMP   #64             ; ... until 64 rows ...
+	     BCC   StillLow        ; ... then ...
+	     INY                   ; ... by 2
+StillLow:
+	     STY   wall_inc        ; New increment
 
-	     INX                       ; Copy ...
-	     LDA   SKILL_VALUES,X   ; ... new ...
-	     STA   walldely         ; ... wall delay
+	     INX                   ; Copy ...
+	     LDA   SKILL_VALUES,X  ; ... new ...
+	     STA   walldely        ; ... wall delay
 	     STA   walldelyr
 
-	     INX                       ; Copy ...
-	     LDA   SKILL_VALUES,X   ; ... new ...
-	     STA   gapbits          ; ... gap pattern
-out2:    RTS                       ; Done
+	     INX                   ; Copy ...
+	     LDA   SKILL_VALUES,X  ; ... new ...
+	     STA   gapbits         ; ... gap pattern
+Out2:    RTS
 
-AdjBump: TXA                       ; Move ...
-	     CLC                       ; ... X to ...
-	     ADC   #8               ; ... next ...
-	     TAX                       ; ... entry
+AdjBump: TXA                   ; Move ...
+	     CLC                   ; ... X to ...
+	     ADC   #8              ; ... next ...
+	     TAX                   ; ... entry
 
-     	JMP    AdjNextRow       ; Try next row
+     	JMP    AdjNextRow      ; Try next row
 
 
 SEL_RESET_CHK:
@@ -539,18 +538,18 @@ SEL_RESET_CHK:
 	     ;  switches and debounces the transitions.
 	     ;  xxxxxxSR (Select, Reset)
 
-	     LDX   debounce         ; Get the last value
-	     LDA   SWCHB            ; New value
-	     AND   #3               ; Only need bottom 2 bits
-	     CMP   debounce         ; Same as before?
-	     BEQ   Seldebounce      ; Yes ... return nothing changed
-	     STA   debounce         ; Hold new last value
-	     EOR   #255             ; Active low to active high
-	     AND   #3               ; Only need select/reset
-	     RTS                       ; Return changes
-Seldebounce:
-	     LDA   #0               ; Return 0 ...
-	     RTS                       ; ... nothing changed
+	     LDX   debounce        ; Get the last value
+	     LDA   SWCHB           ; New value
+	     AND   #3              ; Only need bottom 2 bits
+	     CMP   debounce        ; Same as before?
+	     BEQ   SelDebounce     ; Yes ... return nothing changed
+	     STA   debounce        ; Hold new last value
+	     EOR   #255            ; Active low to active high
+	     AND   #3              ; Only need select/reset
+	     RTS                   ; Return changes
+SelDebounce:
+	     LDA   #0              ; Return 0 ...
+	     RTS                   ; ... nothing changed
 
 INIT_MUSIC:
          RTS
@@ -607,70 +606,79 @@ DIGITS:
 	     .byte   0b__....*.*.
 	     .byte   0b__....***.
 SKILL_VALUES:
-	     .byte    0,        3,     0
+	     .byte    0, 3, 0
 
 	     .byte   0b__..*...*.  ; 1
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
-	     .byte    4,        2,     0
+	     ;
+	     .byte   4, 2, 0
 
 	     .byte   0b__***.***.  ; 2
 	     .byte   0b__..*...*.
 	     .byte   0b__***.***.
 	     .byte   0b__*...*...
 	     .byte   0b__***.***.
-	     .byte    12,       2,     1
+	     ;
+	     .byte   12, 2, 1
 
 	     .byte   0b__***.***.  ; 3
 	     .byte   0b__..*...*.
 	     .byte   0b__.**..**.
 	     .byte   0b__..*...*.
 	     .byte   0b__***.***.
-	     .byte    24,       1,     3
+	     ;
+	     .byte   24, 1, 3
 
 	     .byte   0b__*.*.*.*.  ; 4
 	     .byte   0b__*.*.*.*.
 	     .byte   0b__***.***.
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
-	     .byte    32,       1,     7
+	     ;
+	     .byte   32, 1, 7
 
 	     .byte   0b__***.***. ; 5
 	     .byte   0b__*...*...
 	     .byte   0b__***.***.
 	     .byte   0b__..*...*.
 	     .byte   0b__***.***.
-	      .byte    40,       1,    15
+	     ;
+	     .byte   40, 1, 15
 
 	     .byte   0b__***.***. ; 6
 	     .byte   0b__*...*...
 	     .byte   0b__***.***.
 	     .byte   0b__*.*.*.*.
 	     .byte   0b__***.***.
-	     .byte    64,       1,     1
+	     ;
+	     .byte   64, 1, 1
 
 	     .byte   0b__***.***. ; 7
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
 	     .byte   0b__..*...*.
-	     .byte    80,       1,     3
+	     ;
+	     .byte   80, 1, 3
 
 	     .byte   0b__***.***. ; 8
 	     .byte   0b__*.*.*.*.
 	     .byte   0b__***.***.
 	     .byte   0b__*.*.*.*.
 	     .byte   0b__***.***.
-	     .byte    96,       1,     7
+	     ;
+	     .byte   96, 1, 7
 
 	     .byte   0b__***.***. ; 9
 	     .byte   0b__*.*.*.*.
 	     .byte   0b__***.***.
 	     .byte   0b__..*...*.
 	     .byte   0b__***.***.
-LAST:    .byte    255
+	     ;
+LAST:    .byte   255
 
 
 ; 6502 vectors
