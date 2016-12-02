@@ -4,9 +4,9 @@
 
 ;  RAM usage
 
-.tmp0             =     128
-.tmp1             =     +
-.tmp2             =     +
+.tmp0             =     0x80 ; First RAM address
+.tmp1             =     +    ; 0x81
+.tmp2             =     +    ; 0x82
 .tmp3             =     +
 .playr0y          =     +
 .mustmp1          =     +
@@ -31,7 +31,9 @@
 .score_pf1e       =     +
 .score_pf1f       =     +
 
-F800:
+; FC00 through FFFF is 1K
+
+FC00:
 MAIN:
          SEI                   ; Turn off interrupts
          CLD                   ; Clear the "decimal" flag
@@ -40,22 +42,22 @@ MAIN:
 ; Nice, tight code to clear memory and registers at startup
          LDX   #0              ; 0 to ...
          TXS                   ; ... SP
-         PHA                   ; SP is now FF (the end of memory)
          TXA                   ; 0 to A (for clearing memory)
+         PHA                   ; SP is now FF (the end of memory)
 Clear:   PHA                   ; Store 0
          DEX                   ; All 256 of memory+registers cleared?
          BNE   Clear           ; No ... do all. SP ends at FF again
 
          JSR  INIT             ; Initialize game environment
-         JSR  INIT_SELMODE     ; Start out in SELECT-mode (fall into main loop)
+         JSR  INIT_SELMODE     ; Start out in SELECT mode (fall into main loop)
 
 ; Start here at the end of every screen frame
 ;
 VIDEO_KERNEL:
 
-	     LDA   #2              ; D1 bit ON
-	     STA   WSYNC           ; Wait for the end of the current line
-	     STA   VBLANK          ; Turn the electron beam off
+	     LDA   #2              ; Wait for ...
+	     STA   WSYNC           ; ... the end of the current line
+	     STA   VBLANK          ; Turn the beam off
 	     STA   WSYNC           ; Wait ...
 	     STA   WSYNC           ; ... three ...
 	     STA   WSYNC           ; ... scanlines
@@ -79,20 +81,20 @@ VIDEO_KERNEL:
          INC   entropya        ; Counting video frames as part of the random number
 
          LDA   mode            ; What are we doing between frames?
-         BEQ   DoGameOvermode  ; ... "game over"
-         CMP   #1              ; mode is ...
+         BEQ   DoGameOvermode  ; 0 is "game over"
+         CMP   #1              ; 1 is ...
          BEQ   DoPlaymode      ; ... "game play"
-         JSR   SELMODE         ; mode is "select game"
+         JSR   SELMODE         ; 2 is "select game"
          JMP   DrawFrame       ; Continue to the visible screen area
          ; JSR/RTS
 
 DoPlaymode:
          JSR   PLAYMODE        ; Playing-game processing
-         JMP   DrawFrame
+         JMP   DrawFrame       ; Continue to the visible screen area
          ; JSR/RTS
 
 DoGameOvermode:
-         JSR   GOMODE          ; Game-over processing
+         JSR   GOMODE          ; Game-over processing (fall into DrawFrame)
 
 DrawFrame:
 
@@ -103,15 +105,14 @@ DrawFrame:
 
 	     STA   WSYNC           ; 37th scanline
 	     LDA   #0              ; Turn the ...
-	     STA   VBLANK          ; ... electron beam back on
+	     STA   VBLANK          ; ... beam back on
 
 	     LDA   #0              ; Zero out ...
 	     STA   scancnt         ; ... scanline count ...
 	     STA   tmp0            ; ... and all ...
 	     STA   tmp1            ; ... returns ...
 	     STA   tmp2            ; ... expected ...
-	     TAX                   ; ... to come from ...
-	     TAY                   ; ... BUILDROW
+	     TAX                   ; ... to come from BUILDROW
 
 	     STA   CXCLR           ; Clear collision detection
 
@@ -121,12 +122,12 @@ DrawVisibleRows:
 
          LDA   tmp0            ; Get A ready (PF0 value)
 	     STA   WSYNC           ; Wait for very start of row
-	     STX   GRP0            ; Player 0 -- in X
-	     STA   PF0             ; PF0      -- in tmp0 (already in A)
-	     LDA   tmp1            ; PF1      -- in tmp1
-	     STA   PF1             ; ...
-	     LDA   tmp2            ; PP2      -- in tmp2
-	     STA   PF2             ; ...
+	     STX   GRP0            ; Player 0 graphics (or blank) in X
+	     STA   PF0             ; PF0 in tmp0 (already in A)
+	     LDA   tmp1            ; PF1 ...
+	     STA   PF1             ; ... in tmp1
+	     LDA   tmp2            ; PP2 ...
+	     STA   PF2             ; ... in tmp2
 
 	     JSR   BUILDROW        ; This MUST take through to the next line
 
@@ -252,7 +253,7 @@ TimeP0Pos:
          DEX                   ; Kill time while the beam moves ...
          BNE   TimeP0Pos       ; ... to position
          STA   RESP0           ; Mark player 0's X position
-         LDA   #12             ; near the bottom
+         LDA   #11             ; near the bottom
          STA   playr0y         ; Player 0 Y coordinate
 
          LDA   #0              ; Set score to ...
@@ -473,26 +474,26 @@ CountDone:
 	     ; We have plenty of code space. Time and registers are at a premium.
 	     ; So copy/past the code for each row
 
-	     LDA   #0
-	     STA   tmp3
+	     LDA   #0              ; Digit row ...
+	     STA   tmp3            ; ... counter
 
 ScoreLoop:
-	     LDX   tmp2
-	     LDA   DIGITS,X        ; Get the 10's digit
+	     LDX   tmp2            ; Left most digit
+	     LDA   DIGITS,X        ; Get the 10's digit pixels
 	     AND   #0xF0           ; Upper nibble
 	     STA   tmp0            ; Store left side
-	     LDX   tmp1
-	     LDA   DIGITS,X        ; Get the 1's digit
+	     LDX   tmp1            ; Right most digit
+	     LDA   DIGITS,X        ; Get the 1's digit pixels
 	     AND   #0x0F           ; Lower nibble
 	     ORA   tmp0            ; Put left and right half together
-	     LDX   tmp3
-	     STA   score_pf1,X     ; And store image
-	     INC   tmp1
-	     INC   tmp2
-	     INC   tmp3
-	     LDA   tmp3
-	     CMP   #5
-	     BNE   ScoreLoop
+	     LDX   tmp3            ; Row counter
+	     STA   score_pf1,X     ; Store calculated image for draw
+	     INC   tmp1            ; Next row in right digit
+	     INC   tmp2            ; Next row in left digit
+	     INC   tmp3            ; Next row count
+	     LDA   tmp3            ; Have we finished ...
+	     CMP   #5              ; ... all rows?
+	     BNE   ScoreLoop       ; No ... do them all
 
 	     RTS
 
@@ -586,7 +587,7 @@ GR_PLAYER:
 	     .byte    0b__.*****..
 
 DIGITS:
-	     ;  Images for numbers
+	     ;  Images for numbers:
 	     ;  We only need 5 rows, but the extra space on the end makes each digit 8 rows,
 	     ;  which makes it the multiplication easier.
 
