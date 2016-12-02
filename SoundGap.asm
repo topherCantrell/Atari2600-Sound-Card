@@ -285,6 +285,7 @@ INIT_PLAYMODE:
 	     LDA   #112            ; Force wall to start ...
 	     STA   wallstart       ; ... over on first move
 	     JMP   INIT_MUSIC      ; Initialize the music and return
+	     ; JSR/RTS
 
 PLAYMODE:
 
@@ -296,6 +297,7 @@ PLAYMODE:
          BEQ   NoSelect        ; No ... skip
          STX   debounce        ; Restore the old value ...
          JMP   INIT_SELMODE    ; ... and let select-mode process the toggle and return
+         ; JSR/RTS
 
 NoSelect:
 	     JSR   PROCESS_MUSIC   ; Process any playing music
@@ -355,6 +357,7 @@ SELMODE:
 	     AND   #1              ; RESET button?
 	     BEQ   Out1            ; No ... skip
 	     JMP   INIT_PLAYMODE   ; Reset toggled ... start game
+	     ; JSR/RTS
 
 INIT_GOMODE:
 
@@ -364,6 +367,7 @@ INIT_GOMODE:
 	     LDA   #0              ; Going to ...
 	     STA   mode            ; ... game-over mode
 	     JMP   INIT_GO_FX      ; Initialize sound effects
+	     ; JSR/RTS
 
 GOMODE:
 
@@ -375,6 +379,7 @@ GOMODE:
 	     CMP   #0              ; Effects still running?
 	     BNE   Out1            ; Yes ... let them run
 	     JMP   INIT_SELMODE    ; When effect is over, go to select mode
+	     ; JSR/RTS
 
 MOVE_WALLS:
 

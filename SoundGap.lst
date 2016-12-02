@@ -333,9 +333,9 @@ F8E5: 84 0E          STY   PF1             ; Repeat the left-side playfield ...
 F8E7: 85 0F          STA   PF2             ; ... onto the new row
 
 F8E9: A2 06          LDX   #6              ; Wait for ...
-delay1:
-F8EB: CA       delay1:  DEX                   ; ... left half of ...
-F8EC: D0 FD          BNE   delay1          ; ... playfield
+Delay1:
+F8EB: CA       Delay1:  DEX                   ; ... left half of ...
+F8EC: D0 FD          BNE   Delay1          ; ... playfield
 
       ;  The beam is past the left half of the field again.
       ;  Turn off the playfield.
@@ -421,40 +421,40 @@ F956: 20 F3 F9       JSR   MAKE_SCORE      ; ... score pattern
 F959: 20 CC F9       JSR   NEW_GAPS        ; Calculate the new gap position
 
 NoFirst:
-F95C: A5 02          LDA   CXP0FB           ; Player 0 collision with playfield
-F95E: 29 80          AND   #128             ; Did player hit wall?
-F960: F0 03          BEQ   NoHit            ; No ... move on
-F962: 4C 9A F9       JMP   INIT_GOMODE      ; Go to Game-Over mode
+F95C: A5 02          LDA   CXP0FB          ; Player 0 collision with playfield
+F95E: 29 80          AND   #128            ; Did player hit wall?
+F960: F0 03          BEQ   NoHit           ; No ... move on
+F962: 4C 9A F9       JMP   INIT_GOMODE     ; Go to Game-Over mode
 
 NoHit:
-F965: AD 80 02       LDA   SWCHA            ; Joystick
-F968: 29 80          AND   #128             ; Player 0 ... moving left
-F96A: F0 11          BEQ   MoveP0Left       ; Yes ... move left
-F96C: AD 80 02       LDA   SWCHA            ; Joystick
-F96F: 29 40          AND   #64              ; Player 0 ... moving right?
-F971: F0 05          BEQ   MoveP0Right      ; Yes ... move right
-F973: A9 00          LDA   #0               ; Not moving value
-F975: 4C 81 F9       JMP   SetMoveP0        ; Don't move the player
+F965: AD 80 02       LDA   SWCHA           ; Joystick
+F968: 29 80          AND   #128            ; Player 0 ... moving left
+F96A: F0 11          BEQ   MoveP0Left      ; Yes ... move left
+F96C: AD 80 02       LDA   SWCHA           ; Joystick
+F96F: 29 40          AND   #64             ; Player 0 ... moving right?
+F971: F0 05          BEQ   MoveP0Right     ; Yes ... move right
+F973: A9 00          LDA   #0              ; Not moving value
+F975: 4C 81 F9       JMP   SetMoveP0       ; Don't move the player
 MoveP0Right:
-F978: A9 10          LDA   #16              ; +1
-F97A: 4C 81 F9       JMP   SetMoveP0        ; Set HMP0
+F978: A9 10          LDA   #16             ; +1
+F97A: 4C 81 F9       JMP   SetMoveP0       ; Set HMP0
 MoveP0Left:
 F97D: E6 8C          INC   entropya
-F97F: A9 F0          LDA   #240             ; -1
+F97F: A9 F0          LDA   #240            ; -1
 SetMoveP0:
-F981: 85 20          STA   HMP0             ; New movement value P0
-F983: 60             RTS                       ; Done
+F981: 85 20          STA   HMP0            ; New movement value P0
+F983: 60             RTS                   
 
 INIT_SELMODE:
       ;
       ;  This function initializes the games SELECT-mode
       ;
-F984: A9 C8          LDA   #200             ; Background ...
-F986: 85 09          STA   COLUBK           ; ... greenish bright
-F988: A9 02          LDA   #2               ; Now in ...
-F98A: 85 87          STA   mode             ; SELECT game mode
-out1:
-F98C: 60       out1:    RTS                       ; Done
+F984: A9 C8          LDA   #200            ; Background ...
+F986: 85 09          STA   COLUBK          ; ... greenish bright
+F988: A9 02          LDA   #2              ; Now in ...
+F98A: 85 87          STA   mode            ; SELECT game mode
+Out1:
+F98C: 60       Out1:    RTS   
 
 SELMODE:
       ;
@@ -462,20 +462,20 @@ SELMODE:
       ;  The wall moves here, but doesn't change or collide with players.
       ;  This function selects between 1 and 2 player game.
       ;
-F98D: 20 AD F9       JSR   MOVE_WALLS       ; Move the walls
-F990: 20 6C FA       JSR   SEL_RESET_CHK    ; Check the reset/select switches
-F993: 29 01          AND   #1               ; RESET button?
-F995: F0 F5          BEQ   out1             ; No ... skip
-F997: 4C 26 F9       JMP   INIT_PLAYMODE    ; Reset toggled ... start game
+F98D: 20 AD F9       JSR   MOVE_WALLS      ; Move the walls
+F990: 20 6C FA       JSR   SEL_RESET_CHK   ; Check the reset/select switches
+F993: 29 01          AND   #1              ; RESET button?
+F995: F0 F5          BEQ   Out1            ; No ... skip
+F997: 4C 26 F9       JMP   INIT_PLAYMODE   ; Reset toggled ... start game
 
 INIT_GOMODE:
 
       ;  This function initializes the GAME-OVER game mode.
 
-F99A: 85 2B          STA   HMCLR            ; Stop both players from moving
-F99C: A9 00          LDA   #0               ; Going to ...
-F99E: 85 87          STA   mode             ; ... game-over mode
-F9A0: 4C 83 FA       JMP   INIT_GO_FX       ; Initialize sound effects
+F99A: 85 2B          STA   HMCLR           ; Stop both players from moving
+F99C: A9 00          LDA   #0              ; Going to ...
+F99E: 85 87          STA   mode            ; ... game-over mode
+F9A0: 4C 83 FA       JMP   INIT_GO_FX      ; Initialize sound effects
 
 GOMODE:
 
@@ -483,65 +483,64 @@ GOMODE:
       ; over sequence. When the sound effect has finished, the
       ; game switches to select mode.
 
-F9A3: 20 88 FA       JSR   PROCESS_GO_FX    ; Process the sound effects
-F9A6: C9 00          CMP   #0               ; Effects still running?
-F9A8: D0 E2          BNE   out1      ; Yes ... let them run
-F9AA: 4C 84 F9       JMP   INIT_SELMODE     ; When effect is over, go to select mode
+F9A3: 20 88 FA       JSR   PROCESS_GO_FX   ; Process the sound effects
+F9A6: C9 00          CMP   #0              ; Effects still running?
+F9A8: D0 E2          BNE   Out1            ; Yes ... let them run
+F9AA: 4C 84 F9       JMP   INIT_SELMODE    ; When effect is over, go to select mode
 
 MOVE_WALLS:
 
       ;  This function moves the wall down the screen and back to position 0
       ;  when it reaches (or passes) 112.
 
-F9AD: C6 8A          DEC   walldely         ; Wall motion timer
-F9AF: A5 8A          LDA   walldely         ; Time to ...
-F9B1: D0 16          BNE   WallDone         ; No ... leave it alone
-F9B3: A5 8B          LDA   walldelyr        ; Reset the ...
-F9B5: 85 8A          STA   walldely         ; ... delay count
-F9B7: A5 91          LDA   wallstart        ; Current wall position
-F9B9: 18             CLC                       ; Increment ...
-F9BA: 65 88          ADC   wall_inc         ; ... wall position
-F9BC: C9 70          CMP   #112             ; At the bottom?
-F9BE: 90 07          BCC   WallOK           ; No ... leave it alone
-F9C0: A9 00          LDA   #0               ; Else restart ...
-F9C2: 85 91          STA   wallstart        ; ... wall at top of screen
-F9C4: A9 01          LDA   #1               ; Return flag that wall DID restart
+F9AD: C6 8A          DEC   walldely        ; Wall motion timer
+F9AF: A5 8A          LDA   walldely        ; Time to ...
+F9B1: D0 16          BNE   WallDone        ; No ... leave it alone
+F9B3: A5 8B          LDA   walldelyr       ; Reset the ...
+F9B5: 85 8A          STA   walldely        ; ... delay count
+F9B7: A5 91          LDA   wallstart       ; Current wall position
+F9B9: 18             CLC                   ; Increment ...
+F9BA: 65 88          ADC   wall_inc        ; ... wall position
+F9BC: C9 70          CMP   #112            ; At the bottom?
+F9BE: 90 07          BCC   WallOK          ; No ... leave it alone
+F9C0: A9 00          LDA   #0              ; Else restart ...
+F9C2: 85 91          STA   wallstart       ; ... wall at top of screen
+F9C4: A9 01          LDA   #1              ; Return flag that wall DID restart
 F9C6: 60             RTS
 WallOK:
-F9C7: 85 91           STA   wallstart        ; Store new wall position
+F9C7: 85 91           STA   wallstart       ; Store new wall position
 WallDone:
-F9C9: A9 00          LDA   #0               ; Return flag that wall did NOT restart
+F9C9: A9 00          LDA   #0              ; Return flag that wall did NOT restart
 F9CB: 60             RTS
 
-NEW_GAPS:                                  ;  --SubroutineContextBegins--
+NEW_GAPS:
       ;  This function builds the PF0, PF1, and PF2 graphics for a wall
       ;  with the gap pattern (gapbits) placed at random in the 20 bit
       ;  area.
 
-F9CC: A9 FF          LDA   #255             ; Start with ...
-F9CE: 85 8E          STA   walldrela        ; ... solid wall in PF0 ...
-F9D0: 85 8F          STA   walldrelb        ; ... and PF1
-F9D2: A5 92          LDA   gapbits          ; Store the gap pattern ...
-F9D4: 85 90          STA   walldrelc        ; ... in PF2
+F9CC: A9 FF          LDA   #255            ; Start with ...
+F9CE: 85 8E          STA   walldrela       ; ... solid wall in PF0 ...
+F9D0: 85 8F          STA   walldrelb       ; ... and PF1
+F9D2: A5 92          LDA   gapbits         ; Store the gap pattern ...
+F9D4: 85 90          STA   walldrelc       ; ... in PF2
 
-F9D6: A5 8C             LDA   entropya         ; OLine=552  Get ...
-
-F9D8: 29 0F             AND   #15              ; 0 to 15
-F9DA: C9 0C          CMP   #12              ; Too far to the right?
-F9DC: F0 04          BEQ   GapOK            ; No ... 12 is OK
-F9DE: 90 02          BCC   GapOK            ; No ... less than 12 is OK
-F9E0: E9 09          SBC   #9               ; Back up 9
+F9D6: A5 8C             LDA   entropya        ; Get random
+F9D8: 29 0F             AND   #15             ; 0 to 15
+F9DA: C9 0C          CMP   #12             ; Too far to the right?
+F9DC: F0 04          BEQ   GapOK           ; No ... 12 is OK
+F9DE: 90 02          BCC   GapOK           ; No ... less than 12 is OK
+F9E0: E9 09          SBC   #9              ; Back up 9
 
 GapOK:
-F9E2: C9 00          CMP   #0               ; Gap already at far left?
-F9E4: F0 A6          BEQ   out1          ; Yes ... done
-F9E6: 38             SEC                       ; Roll gap ...
-F9E7: 66 90          ROR   walldrelc        ; ... left ...
-F9E9: 26 8F          ROL   walldrelb        ; ... desired ...
-F9EB: 66 8E          ROR   walldrela        ; ... times ...
-F9ED: 38             SEC                       ; All rolls ...
-F9EE: E9 01          SBC   #1               ; ... done?
-F9F0: 4C E2 F9       JMP   GapOK            ; No ... do them all
+F9E2: C9 00          CMP   #0              ; Gap already at far left?
+F9E4: F0 A6          BEQ   Out1            ; Yes ... done
+F9E6: 38             SEC                   ; Roll gap ...
+F9E7: 66 90          ROR   walldrelc       ; ... left ...
+F9E9: 26 8F          ROL   walldrelb       ; ... desired ...
+F9EB: 66 8E          ROR   walldrela       ; ... times ...
+F9ED: 38             SEC                   ; All rolls ...
+F9EE: E9 01          SBC   #1              ; ... done?
+F9F0: 4C E2 F9       JMP   GapOK           ; No ... do them all
 
 MAKE_SCORE:
 
@@ -549,34 +548,34 @@ MAKE_SCORE:
       ;  the byte value passed in A. The current implementation is
       ;  two-digits only ... PF2 is blank.
 
-F9F3: A2 00          LDX   #0               ; 100's digit
-F9F5: A0 00          LDY   #0               ; 10's digit
+F9F3: A2 00          LDX   #0              ; 100's digit
+F9F5: A0 00          LDY   #0              ; 10's digit
 
 Count100s:
-F9F7: C9 64          CMP   #100             ; Need another 100s digit?
-F9F9: 90 07          BCC   Count10s         ; No ... move on to 10s
-F9FB: E8             INX                       ; Count ...
-F9FC: 38             SEC                       ; ... value
-F9FD: E9 64          SBC   #100             ; Take off this 100
-F9FF: 4C F7 F9       JMP   Count100s        ; Keep counting
+F9F7: C9 64          CMP   #100            ; Need another 100s digit?
+F9F9: 90 07          BCC   Count10s        ; No ... move on to 10s
+F9FB: E8             INX                   ; Count ...
+F9FC: 38             SEC                   ; ... value
+F9FD: E9 64          SBC   #100            ; Take off this 100
+F9FF: 4C F7 F9       JMP   Count100s       ; Keep counting
 Count10s:
-FA02: C9 0A          CMP   #10              ; Need another 10s digit?
-FA04: 90 07          BCC   CountDone        ; No ... got all the tens
-FA06: C8             INY                       ; Count ...
-FA07: 38             SEC                       ; ... value
-FA08: E9 0A          SBC   #10              ; Take off this 10
-FA0A: 4C 02 FA       JMP   Count10s         ; Keep counting
+FA02: C9 0A          CMP   #10             ; Need another 10s digit?
+FA04: 90 07          BCC   CountDone       ; No ... got all the tens
+FA06: C8             INY                   ; Count ...
+FA07: 38             SEC                   ; ... value
+FA08: E9 0A          SBC   #10             ; Take off this 10
+FA0A: 4C 02 FA       JMP   Count10s        ; Keep counting
 
 CountDone:
-FA0D: 0A             ASL   A                ; One's digit ...
-FA0E: 0A             ASL   A                ; ... *8 ....
-FA0F: 0A             ASL   A                ; ... to find picture
+FA0D: 0A             ASL   A               ; One's digit ...
+FA0E: 0A             ASL   A               ; ... *8 ....
+FA0F: 0A             ASL   A               ; ... to find picture
 FA10: 85 81          STA   tmp1
-FA12: 98             TYA                       ; Now the 10's digit
-FA13: 0A             ASL   A                ; Multiply ...
-FA14: 0A             ASL   A                ; ... by 8 ...
-FA15: 0A             ASL   A                ; ... to find picture
-FA16: 85 82          STA   tmp2                      ; 10's picture in Y
+FA12: 98             TYA                   ; Now the 10's digit
+FA13: 0A             ASL   A               ; Multiply ...
+FA14: 0A             ASL   A               ; ... by 8 ...
+FA15: 0A             ASL   A               ; ... to find picture
+FA16: 85 82          STA   tmp2            ; 10's picture in Y
 
       ; We have plenty of code space. Time and registers are at a premium.
       ; So copy/past the code for each row
@@ -584,23 +583,23 @@ FA16: 85 82          STA   tmp2                      ; 10's picture in Y
 FA18: A9 00          LDA   #0
 FA1A: 85 83          STA   tmp3
 
-scoreLoop:
+ScoreLoop:
 FA1C: A6 82          LDX   tmp2
-FA1E: BD 95 FA       LDA   DIGITS,X         ; Get the 10's digit
-FA21: 29 F0          AND   #0xF0            ; Upper nibble
-FA23: 85 80          STA   tmp0        ; Store left side
+FA1E: BD 95 FA       LDA   DIGITS,X        ; Get the 10's digit
+FA21: 29 F0          AND   #0xF0           ; Upper nibble
+FA23: 85 80          STA   tmp0            ; Store left side
 FA25: A6 81          LDX   tmp1
-FA27: BD 95 FA       LDA   DIGITS,X         ; Get the 1's digit
-FA2A: 29 0F          AND   #0x0F            ; Lower nibble
-FA2C: 05 80          ORA   tmp0        ; Put left and right half together
+FA27: BD 95 FA       LDA   DIGITS,X        ; Get the 1's digit
+FA2A: 29 0F          AND   #0x0F           ; Lower nibble
+FA2C: 05 80          ORA   tmp0            ; Put left and right half together
 FA2E: A6 83          LDX   tmp3
-FA30: 95 93          STA   score_pf1,X        ; And store image
+FA30: 95 93          STA   score_pf1,X     ; And store image
 FA32: E6 81          INC   tmp1
 FA34: E6 82          INC   tmp2
 FA36: E6 83          INC   tmp3
 FA38: A5 83          LDA   tmp3
 FA3A: C9 05          CMP   #5
-FA3C: D0 DE          BNE   scoreLoop
+FA3C: D0 DE          BNE   ScoreLoop
 
 FA3E: 60             RTS
 
@@ -610,41 +609,41 @@ ADJUST_DIF:
       ;  current score. The music can also change with the difficulty. A single
       ;  table describes the new values and when they take effect.
 
-FA3F: A2 00          LDX   #0               ; Starting at index 0
+FA3F: A2 00          LDX   #0              ; Starting at index 0
 
 AdjNextRow:
-FA41: BD 9A FA       LDA   SKILL_VALUES,X   ; Get the score match
-FA44: C9 FF          CMP   #255             ; At the end of the table?
-FA46: F0 1B          BEQ   out2    ; Yes ... leave it alone
+FA41: BD 9A FA       LDA   SKILL_VALUES,X  ; Get the score match
+FA44: C9 FF          CMP   #255            ; At the end of the table?
+FA46: F0 1B          BEQ   Out2            ; Yes ... leave it alone
 
-FA48: C5 89          CMP   wallcnt          ; Is this our entry?
-FA4A: D0 18          BNE   AdjBump          ; No ... bump to next
+FA48: C5 89          CMP   wallcnt         ; Is this our entry?
+FA4A: D0 18          BNE   AdjBump         ; No ... bump to next
 
-FA4C: A0 01          LDY   #1               ; Increment by 1 ...
-FA4E: C9 40          CMP   #64              ; ... until 64 rows ...
-FA50: 90 01          BCC   stillLow         ; ... then ...
-FA52: C8             INY                       ; ... by 2
-stillLow:
-FA53: 84 88          STY   wall_inc              ; New increment
+FA4C: A0 01          LDY   #1              ; Increment by 1 ...
+FA4E: C9 40          CMP   #64             ; ... until 64 rows ...
+FA50: 90 01          BCC   StillLow        ; ... then ...
+FA52: C8             INY                   ; ... by 2
+StillLow:
+FA53: 84 88          STY   wall_inc        ; New increment
 
-FA55: E8             INX                       ; Copy ...
-FA56: BD 9A FA       LDA   SKILL_VALUES,X   ; ... new ...
-FA59: 85 8A          STA   walldely         ; ... wall delay
+FA55: E8             INX                   ; Copy ...
+FA56: BD 9A FA       LDA   SKILL_VALUES,X  ; ... new ...
+FA59: 85 8A          STA   walldely        ; ... wall delay
 FA5B: 85 8B          STA   walldelyr
 
-FA5D: E8             INX                       ; Copy ...
-FA5E: BD 9A FA       LDA   SKILL_VALUES,X   ; ... new ...
-FA61: 85 92          STA   gapbits          ; ... gap pattern
-out2:
-FA63: 60       out2:    RTS                       ; Done
+FA5D: E8             INX                   ; Copy ...
+FA5E: BD 9A FA       LDA   SKILL_VALUES,X  ; ... new ...
+FA61: 85 92          STA   gapbits         ; ... gap pattern
+Out2:
+FA63: 60       Out2:    RTS
 
 AdjBump:
-FA64: 8A       AdjBump: TXA                       ; Move ...
-FA65: 18             CLC                       ; ... X to ...
-FA66: 69 08          ADC   #8               ; ... next ...
-FA68: AA             TAX                       ; ... entry
+FA64: 8A       AdjBump: TXA                   ; Move ...
+FA65: 18             CLC                   ; ... X to ...
+FA66: 69 08          ADC   #8              ; ... next ...
+FA68: AA             TAX                   ; ... entry
 
-FA69: 4C 41 FA       JMP    AdjNextRow       ; Try next row
+FA69: 4C 41 FA       JMP    AdjNextRow      ; Try next row
 
 
 SEL_RESET_CHK:
@@ -653,18 +652,18 @@ SEL_RESET_CHK:
       ;  switches and debounces the transitions.
       ;  xxxxxxSR (Select, Reset)
 
-FA6C: A6 8D          LDX   debounce         ; Get the last value
-FA6E: AD 82 02       LDA   SWCHB            ; New value
-FA71: 29 03          AND   #3               ; Only need bottom 2 bits
-FA73: C5 8D          CMP   debounce         ; Same as before?
-FA75: F0 07          BEQ   Seldebounce      ; Yes ... return nothing changed
-FA77: 85 8D          STA   debounce         ; Hold new last value
-FA79: 49 FF          EOR   #255             ; Active low to active high
-FA7B: 29 03          AND   #3               ; Only need select/reset
-FA7D: 60             RTS                       ; Return changes
-Seldebounce:
-FA7E: A9 00          LDA   #0               ; Return 0 ...
-FA80: 60             RTS                       ; ... nothing changed
+FA6C: A6 8D          LDX   debounce        ; Get the last value
+FA6E: AD 82 02       LDA   SWCHB           ; New value
+FA71: 29 03          AND   #3              ; Only need bottom 2 bits
+FA73: C5 8D          CMP   debounce        ; Same as before?
+FA75: F0 07          BEQ   SelDebounce     ; Yes ... return nothing changed
+FA77: 85 8D          STA   debounce        ; Hold new last value
+FA79: 49 FF          EOR   #255            ; Active low to active high
+FA7B: 29 03          AND   #3              ; Only need select/reset
+FA7D: 60             RTS                   ; Return changes
+SelDebounce:
+FA7E: A9 00          LDA   #0              ; Return 0 ...
+FA80: 60             RTS                   ; ... nothing changed
 
 INIT_MUSIC:
 FA81: 60                RTS
@@ -721,71 +720,80 @@ FA97: 0A             .byte   0b__....*.*.
 FA98: 0A             .byte   0b__....*.*.
 FA99: 0E             .byte   0b__....***.
 SKILL_VALUES:
-FA9A: 00 03 00       .byte    0,        3,     0
+FA9A: 00 03 00       .byte    0, 3, 0
 
 FA9D: 22             .byte   0b__..*...*.  ; 1
 FA9E: 22             .byte   0b__..*...*.
 FA9F: 22             .byte   0b__..*...*.
 FAA0: 22             .byte   0b__..*...*.
 FAA1: 22             .byte   0b__..*...*.
-FAA2: 04 02 00       .byte    4,        2,     0
+      ;
+FAA2: 04 02 00       .byte   4, 2, 0
 
 FAA5: EE             .byte   0b__***.***.  ; 2
 FAA6: 22             .byte   0b__..*...*.
 FAA7: EE             .byte   0b__***.***.
 FAA8: 88             .byte   0b__*...*...
 FAA9: EE             .byte   0b__***.***.
-FAAA: 0C 02 01       .byte    12,       2,     1
+      ;
+FAAA: 0C 02 01       .byte   12, 2, 1
 
 FAAD: EE             .byte   0b__***.***.  ; 3
 FAAE: 22             .byte   0b__..*...*.
 FAAF: 66             .byte   0b__.**..**.
 FAB0: 22             .byte   0b__..*...*.
 FAB1: EE             .byte   0b__***.***.
-FAB2: 18 01 03       .byte    24,       1,     3
+      ;
+FAB2: 18 01 03       .byte   24, 1, 3
 
 FAB5: AA             .byte   0b__*.*.*.*.  ; 4
 FAB6: AA             .byte   0b__*.*.*.*.
 FAB7: EE             .byte   0b__***.***.
 FAB8: 22             .byte   0b__..*...*.
 FAB9: 22             .byte   0b__..*...*.
-FABA: 20 01 07       .byte    32,       1,     7
+      ;
+FABA: 20 01 07       .byte   32, 1, 7
 
 FABD: EE             .byte   0b__***.***. ; 5
 FABE: 88             .byte   0b__*...*...
 FABF: EE             .byte   0b__***.***.
 FAC0: 22             .byte   0b__..*...*.
 FAC1: EE             .byte   0b__***.***.
-FAC2: 28 01 0F        .byte    40,       1,    15
+      ;
+FAC2: 28 01 0F       .byte   40, 1, 15
 
 FAC5: EE             .byte   0b__***.***. ; 6
 FAC6: 88             .byte   0b__*...*...
 FAC7: EE             .byte   0b__***.***.
 FAC8: AA             .byte   0b__*.*.*.*.
 FAC9: EE             .byte   0b__***.***.
-FACA: 40 01 01       .byte    64,       1,     1
+      ;
+FACA: 40 01 01       .byte   64, 1, 1
 
 FACD: EE             .byte   0b__***.***. ; 7
 FACE: 22             .byte   0b__..*...*.
 FACF: 22             .byte   0b__..*...*.
 FAD0: 22             .byte   0b__..*...*.
 FAD1: 22             .byte   0b__..*...*.
-FAD2: 50 01 03       .byte    80,       1,     3
+      ;
+FAD2: 50 01 03       .byte   80, 1, 3
 
 FAD5: EE             .byte   0b__***.***. ; 8
 FAD6: AA             .byte   0b__*.*.*.*.
 FAD7: EE             .byte   0b__***.***.
 FAD8: AA             .byte   0b__*.*.*.*.
 FAD9: EE             .byte   0b__***.***.
-FADA: 60 01 07       .byte    96,       1,     7
+      ;
+FADA: 60 01 07       .byte   96, 1, 7
 
 FADD: EE             .byte   0b__***.***. ; 9
 FADE: AA             .byte   0b__*.*.*.*.
 FADF: EE             .byte   0b__***.***.
 FAE0: 22             .byte   0b__..*...*.
 FAE1: EE             .byte   0b__***.***.
+      ;
 LAST:
-FAE2: FF       LAST:    .byte    255
+FAE2: FF       LAST:    .byte   255
 
 
 ; 6502 vectors
