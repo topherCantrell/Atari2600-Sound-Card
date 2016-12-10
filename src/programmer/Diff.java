@@ -7,7 +7,7 @@ public class Diff {
 	
 	public static void main(String [] args) throws Exception {
 		
-		String [] programArgs = {"pacman.bin","from.bin"};args=programArgs;
+		String [] programArgs = {"pacman.bin","from3.bin"};args=programArgs;
 		
 		byte [] f1 = Files.readAllBytes(Paths.get(args[0]));
 		byte [] f2 = Files.readAllBytes(Paths.get(args[1]));

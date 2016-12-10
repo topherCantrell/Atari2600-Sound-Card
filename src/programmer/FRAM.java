@@ -216,8 +216,8 @@ public class FRAM {
         // java programmer.FRAM toFRAM filename
         // java programmer.FRAM fromFRAM filename
     	
-    	String [] fromProgram = {"fromFRAM","from.bin"};args=fromProgram;
-    	//String [] fromProgram = {"toFRAM","pacman.bin"};args=fromProgram;
+    	//String [] fromProgram = {"fromFRAM","from3.bin"};args=fromProgram;
+    	String [] fromProgram = {"toFRAM","pacman.bin"};args=fromProgram;
         
         FRAM fram = new FRAM("COM3");
         
