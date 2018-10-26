@@ -20,11 +20,11 @@ The FRAM programmer is from my [https://github.com/topherCantrell/GameBoyColor-D
 The chip on the left is a Parallax PropStick USB. The chip on the right is the FRAM 1808 chip. A java program sends data to the propstick over
 the the USB serial port. The propstick bit-bangs the FRAM chip's pins to program the RAM. The SPIN code (propstick) and the java code are in the repository.
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/programmer.jpg)
+![](art/programmer.jpg)
 
 Here is how the programmer is wired.
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/progpins.png)
+![](art/progpins.png)
 
 
 ## Hardware
@@ -32,21 +32,21 @@ Here is how the programmer is wired.
 Before I make a custom board, I'll breadboard everything. I pulled the ROM off an Asteroids cartridge board
 and soldered on break-out wires. From right to left: GND, D0-D7, A0-A12, 5V. 
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/breakout.jpg)
+![](art/breakout.jpg)
 
 This is a close-up of a Combat cartridge board without the ROM. Notice the missing A11 pin. The Combat game
 is only 2K bytes.
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/combat.jpg)
+![](art/combat.jpg)
 
 AY38910 control signals:
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/AYsignals.jpg)
+![](art/AYsignals.jpg)
 
 Mapping the AY38910 and the FRAM into the memory space:
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/schematic.jpg)
+![](art/schematic.jpg)
 
-![](https://github.com/topherCantrell/Atari2600-Sound-Card/blob/master/art/memmap.jpg)
+![](art/memmap.jpg)
 
 
